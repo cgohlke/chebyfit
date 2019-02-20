@@ -49,7 +49,7 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :License: 3-clause BSD
 
-:Version: 2019.1.28
+:Version: 2019.2.20
 
 Requirements
 ------------
@@ -107,7 +107,7 @@ True
 
 from __future__ import division, print_function
 
-__version__ = '2019.1.28'
+__version__ = '2019.2.20'
 __docformat__ = 'restructuredtext en'
 __all__ = ('fit_exponentials', 'fit_harmonic_decay', 'chebyshev_forward',
            'chebyshev_invers', 'chebyshev_norm', 'chebyshev_polynom',
