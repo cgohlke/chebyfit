@@ -49,15 +49,17 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :License: 3-clause BSD
 
-:Version: 2019.2.20
+:Version: 2019.4.22
 
 Requirements
 ------------
 * `CPython 2.7 or 3.5+ <https://www.python.org>`_
-* `Numpy 1.14 <https://www.numpy.org>`_
+* `Numpy 1.11.3 <https://www.numpy.org>`_
 
 Revisions
 ---------
+2019.4.22
+    Fix setup requirements.
 2019.1.28
     Move modules into chebyfit package.
     Add Python wrapper for _chebyfit C extension module.
@@ -107,7 +109,7 @@ True
 
 from __future__ import division, print_function
 
-__version__ = '2019.2.20'
+__version__ = '2019.4.22'
 __docformat__ = 'restructuredtext en'
 __all__ = ('fit_exponentials', 'fit_harmonic_decay', 'chebyshev_forward',
            'chebyshev_invers', 'chebyshev_norm', 'chebyshev_polynom',
