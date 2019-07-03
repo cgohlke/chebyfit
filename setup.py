@@ -20,8 +20,8 @@ description = re.search(r'"""(.*)\.(?:\r\n|\r|\n)', code).groups()[0]
 readme = re.search(r'(?:\r\n|\r|\n){2}"""(.*)"""(?:\r\n|\r|\n){2}from', code,
                    re.MULTILINE | re.DOTALL).groups()[0]
 
-readme = '\n'.join([description, '=' * len(description)]
-                   + readme.splitlines()[1:])
+readme = '\n'.join([description, '=' * len(description)] +
+                   readme.splitlines()[1:])
 
 license = re.search(r'(# Copyright.*?(?:\r\n|\r|\n))(?:\r\n|\r|\n)+""', code,
                     re.MULTILINE | re.DOTALL).groups()[0]
@@ -75,5 +75,6 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
-        ],
-    )
+        'Programming Language :: Python :: 3.8',
+    ],
+)
