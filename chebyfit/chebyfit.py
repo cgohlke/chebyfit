@@ -49,7 +49,7 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :License: 3-clause BSD
 
-:Version: 2019.4.22
+:Version: 2019.10.14
 
 Requirements
 ------------
@@ -58,6 +58,9 @@ Requirements
 
 Revisions
 ---------
+2019.10.14
+    Support Python 3.8.
+    Fix numpy 1type FutureWarning.
 2019.4.22
     Fix setup requirements.
 2019.1.28
@@ -109,7 +112,7 @@ True
 
 from __future__ import division, print_function
 
-__version__ = '2019.4.22'
+__version__ = '2019.10.14'
 __docformat__ = 'restructuredtext en'
 __all__ = ('fit_exponentials', 'fit_harmonic_decay', 'chebyshev_forward',
            'chebyshev_invers', 'chebyshev_norm', 'chebyshev_polynom',
@@ -159,10 +162,16 @@ def fit_exponentials(data, numexps, deltat=1.0, numcoef=DEFCOEF, axis=-1):
 
     """
     params, fitted = _chebyfit.fitexps(data, numexps, numcoef, deltat, axis)
-    dtype = numpy.dtype([('offset', 'f8'),
-                         ('amplitude', '%if8' % numexps),
-                         ('rate', '%if8' % numexps),
-                         ('frequency', '%if8' % numexps)])
+    if numexps == 1:
+        dtype = numpy.dtype([('offset', 'f8'),
+                             ('amplitude', 'f8'),
+                             ('rate', 'f8'),
+                             ('frequency', 'f8')])
+    else:
+        dtype = numpy.dtype([('offset', 'f8'),
+                             ('amplitude', '%if8' % numexps),
+                             ('rate', '%if8' % numexps),
+                             ('frequency', '%if8' % numexps)])
     return params.view(dtype), fitted
 
 
