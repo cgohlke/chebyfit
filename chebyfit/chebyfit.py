@@ -1,24 +1,21 @@
-# -*- coding: utf-8 -*-
 # chebyfit.py
 
-# Copyright (c) 2008-2019, Christoph Gohlke
-# Copyright (c) 2008-2019, The Regents of the University of California
-# Produced at the Laboratory for Fluorescence Dynamics
+# Copyright (c) 2008-2020, Christoph Gohlke
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #
-# * Redistributions of source code must retain the above copyright notice,
-#   this list of conditions and the following disclaimer.
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
 #
-# * Redistributions in binary form must reproduce the above copyright notice,
-#   this list of conditions and the following disclaimer in the documentation
-#   and/or other materials provided with the distribution.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
 #
-# * Neither the name of the copyright holder nor the names of its
-#   contributors may be used to endorse or promote products derived from
-#   this software without specific prior written permission.
+# 3. Neither the name of the copyright holder nor the names of its
+#    contributors may be used to endorse or promote products derived from
+#    this software without specific prior written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -41,23 +38,26 @@ Chebyfit is a Python library that implements the algorithms described in:
     photobleaching. G C Malachowski, R M Clegg, and G I Redford.
     J Microsc. 2007; 228(3): 282-295. doi: 10.1111/j.1365-2818.2007.01846.x
 
-:Authors:
+:Author:
   `Christoph Gohlke <https://www.lfd.uci.edu/~gohlke/>`_
 
 :Organization:
   Laboratory for Fluorescence Dynamics. University of California, Irvine
 
-:License: 3-clause BSD
+:License: BSD 3-Clause
 
-:Version: 2019.10.14
+:Version: 2020.1.1
 
 Requirements
 ------------
-* `CPython 2.7 or 3.5+ <https://www.python.org>`_
-* `Numpy 1.11.3 <https://www.numpy.org>`_
+* `CPython >= 3.6 <https://www.python.org>`_
+* `Numpy 1.14 <https://www.numpy.org>`_
 
 Revisions
 ---------
+2020.1.1
+    Remove support for Python 2.7 and 3.5.
+    Update copyright.
 2019.10.14
     Support Python 3.8.
     Fix numpy 1type FutureWarning.
@@ -74,31 +74,31 @@ Fit two-exponential decay function:
 
 >>> deltat = 0.5
 >>> t = numpy.arange(0, 128, deltat)
->>> data = 1.1 + 2.2*numpy.exp(-t/33.3) + 4.4*numpy.exp(-t/55.5)
+>>> data = 1.1 + 2.2 * numpy.exp(-t / 33.3) + 4.4 * numpy.exp(-t / 55.5)
 >>> params, fitted = fit_exponentials(data, numexps=2, deltat=deltat)
 >>> numpy.allclose(data, fitted)
 True
 >>> params['offset']
-array([ 1.1])
+array([1.1])
 >>> params['amplitude']
-array([[ 4.4,  2.2]])
+array([[4.4, 2.2]])
 >>> params['rate']
-array([[ 55.5,  33.3]])
+array([[55.5, 33.3]])
 
 Fit harmonic function with exponential decay:
 
->>> tt = t * (2*math.pi / (t[-1] + deltat))
->>> data = 1.1 + numpy.exp(-t/22.2) * (3.3 - 4.4*numpy.sin(tt)
-...                                        + 5.5*numpy.cos(tt))
+>>> tt = t * (2 * math.pi / (t[-1] + deltat))
+>>> data = 1.1 + numpy.exp(-t / 22.2) * (3.3 - 4.4 * numpy.sin(tt)
+...                                          + 5.5 * numpy.cos(tt))
 >>> params, fitted = fit_harmonic_decay(data, deltat=0.5)
 >>> numpy.allclose(data, fitted)
 True
 >>> params['offset']
-array([ 1.1])
+array([1.1])
 >>> params['rate']
-array([ 22.2])
+array([22.2])
 >>> params['amplitude']
-array([[ 3.3,  4.4,  5.5]])
+array([[3.3, 4.4, 5.5]])
 
 Fit experimental time-domain image:
 
@@ -110,19 +110,18 @@ True
 
 """
 
-from __future__ import division, print_function
+__version__ = '2020.1.1'
 
-__version__ = '2019.10.14'
-__docformat__ = 'restructuredtext en'
-__all__ = ('fit_exponentials', 'fit_harmonic_decay', 'chebyshev_forward',
-           'chebyshev_invers', 'chebyshev_norm', 'chebyshev_polynom',
-           'polynom_roots')
+__all__ = (
+    'fit_exponentials', 'fit_harmonic_decay', 'chebyshev_forward',
+    'chebyshev_invers', 'chebyshev_norm', 'chebyshev_polynom', 'polynom_roots'
+)
 
 import numpy
 
 try:
     from . import _chebyfit
-except (ImportError, ValueError):
+except ImportError:
     import _chebyfit
 
 
@@ -169,9 +168,9 @@ def fit_exponentials(data, numexps, deltat=1.0, numcoef=DEFCOEF, axis=-1):
                              ('frequency', 'f8')])
     else:
         dtype = numpy.dtype([('offset', 'f8'),
-                             ('amplitude', '%if8' % numexps),
-                             ('rate', '%if8' % numexps),
-                             ('frequency', '%if8' % numexps)])
+                             ('amplitude', f'{numexps}f8'),
+                             ('rate', f'{numexps}f8'),
+                             ('frequency', f'{numexps}f8')])
     return params.view(dtype), fitted
 
 
@@ -213,9 +212,9 @@ def fit_harmonic_decay(data, deltat=1.0, numcoef=DEFCOEF, axis=-1):
 def chebyshev_forward(data, numcoef=DEFCOEF):
     """Return coefficients dj of forward Chebyshev transform from data.
 
-    >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32)/3.3)
+    >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32) / 3.3)
     >>> chebyshev_forward(data, 16)[:8]
-    array([ 1.36,  0.61,  0.61,  0.41,  0.2 ,  0.08,  0.03,  0.01])
+    array([1.36, 0.61, 0.61, 0.41, 0.2 , 0.08, 0.03, 0.01])
 
     """
     return _chebyfit.chebyfwd(data, numcoef)
@@ -224,7 +223,7 @@ def chebyshev_forward(data, numcoef=DEFCOEF):
 def chebyshev_invers(coef, numdata):
     """Return reconstructed data from Chebyshev coefficients dj.
 
-    >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32)/3.3)
+    >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32) / 3.3)
     >>> data2 = chebyshev_invers(chebyshev_forward(data, 16), len(data))
     >>> numpy.allclose(data, data2)
     True
@@ -237,7 +236,7 @@ def chebyshev_norm(numdata, numcoef=DEFCOEF):
     """Return Chebyshev polynomial normalization factors Rj.
 
     >>> chebyshev_norm(4, 4)
-    array([  4.  ,   2.22,   4.  ,  20.  ])
+    array([ 4.  ,  2.22,  4.  , 20.  ])
 
     """
     return _chebyfit.chebynorm(numdata, numcoef)
@@ -270,13 +269,10 @@ if __name__ == '__main__':
     import os
     import math  # noqa: required by doctests
     import doctest
+
     try:
         os.chdir('tests')
     except Exception:
         pass
     numpy.set_printoptions(suppress=True, precision=2)
-    try:
-        numpy.set_printoptions(legacy='1.13')
-    except TypeError:
-        pass
     doctest.testmod()
