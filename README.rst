@@ -8,23 +8,26 @@ Chebyfit is a Python library that implements the algorithms described in:
     photobleaching. G C Malachowski, R M Clegg, and G I Redford.
     J Microsc. 2007; 228(3): 282-295. doi: 10.1111/j.1365-2818.2007.01846.x
 
-:Authors:
+:Author:
   `Christoph Gohlke <https://www.lfd.uci.edu/~gohlke/>`_
 
 :Organization:
   Laboratory for Fluorescence Dynamics. University of California, Irvine
 
-:License: 3-clause BSD
+:License: BSD 3-Clause
 
-:Version: 2019.10.14
+:Version: 2020.1.1
 
 Requirements
 ------------
-* `CPython 2.7 or 3.5+ <https://www.python.org>`_
-* `Numpy 1.11.3 <https://www.numpy.org>`_
+* `CPython >= 3.6 <https://www.python.org>`_
+* `Numpy 1.14 <https://www.numpy.org>`_
 
 Revisions
 ---------
+2020.1.1
+    Remove support for Python 2.7 and 3.5.
+    Update copyright.
 2019.10.14
     Support Python 3.8.
     Fix numpy 1type FutureWarning.
@@ -41,31 +44,31 @@ Fit two-exponential decay function:
 
 >>> deltat = 0.5
 >>> t = numpy.arange(0, 128, deltat)
->>> data = 1.1 + 2.2*numpy.exp(-t/33.3) + 4.4*numpy.exp(-t/55.5)
+>>> data = 1.1 + 2.2 * numpy.exp(-t / 33.3) + 4.4 * numpy.exp(-t / 55.5)
 >>> params, fitted = fit_exponentials(data, numexps=2, deltat=deltat)
 >>> numpy.allclose(data, fitted)
 True
 >>> params['offset']
-array([ 1.1])
+array([1.1])
 >>> params['amplitude']
-array([[ 4.4,  2.2]])
+array([[4.4, 2.2]])
 >>> params['rate']
-array([[ 55.5,  33.3]])
+array([[55.5, 33.3]])
 
 Fit harmonic function with exponential decay:
 
->>> tt = t * (2*math.pi / (t[-1] + deltat))
->>> data = 1.1 + numpy.exp(-t/22.2) * (3.3 - 4.4*numpy.sin(tt)
-...                                        + 5.5*numpy.cos(tt))
+>>> tt = t * (2 * math.pi / (t[-1] + deltat))
+>>> data = 1.1 + numpy.exp(-t / 22.2) * (3.3 - 4.4 * numpy.sin(tt)
+...                                          + 5.5 * numpy.cos(tt))
 >>> params, fitted = fit_harmonic_decay(data, deltat=0.5)
 >>> numpy.allclose(data, fitted)
 True
 >>> params['offset']
-array([ 1.1])
+array([1.1])
 >>> params['rate']
-array([ 22.2])
+array([22.2])
 >>> params['amplitude']
-array([[ 3.3,  4.4,  5.5]])
+array([[3.3, 4.4, 5.5]])
 
 Fit experimental time-domain image:
 
