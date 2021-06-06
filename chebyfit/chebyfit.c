@@ -1,7 +1,7 @@
 /* chebyfit.c */
 
 /*
-Copyright (c) 2008-2020, Christoph Gohlke
+Copyright (c) 2008-2021, Christoph Gohlke
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -45,11 +45,11 @@ Refer to the chebyfit.py module for a high level API, documentation, and tests.
 
 :License: BSD 3-Clause
 
-:Version: 2020.1.1
+:Version: 2021.6.6
 
 */
 
-#define _VERSION_ "2020.1.1"
+#define _VERSION_ "2021.6.6"
 
 #define WIN32_LEAN_AND_MEAN
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
@@ -81,13 +81,13 @@ Refer to the chebyfit.py module for a high level API, documentation, and tests.
 Find single root of complex polynomial using Laguerre's method.
 */
 int laguerre(
-    const ssize_t numpoly,
+    const Py_ssize_t numpoly,
     Py_complex* coeff,
     Py_complex* root)
 {
     Py_complex p, dp, ddp, gg, g, h, f, dx, gpf, gmf;
-    ssize_t i, j;
-    ssize_t n = numpoly - 1;
+    Py_ssize_t i, j;
+    Py_ssize_t n = numpoly - 1;
     double t, u;
 
     root->real = 0.5;
@@ -167,12 +167,12 @@ Find complex roots of complex polynomial using Laguerre's method.
 Coefficients are ordered from smallest to largest power and are altered.
 */
 int polyroots(
-    const ssize_t numpoly,
+    const Py_ssize_t numpoly,
     Py_complex* coeff,
     Py_complex* roots)
 {
-    ssize_t i, j;
-    ssize_t n = numpoly;
+    Py_ssize_t i, j;
+    Py_ssize_t n = numpoly;
     Py_complex tc, tt;
     Py_complex *root;
 
@@ -212,12 +212,12 @@ Matrix A is of shape (size, size) and is altered.
 Vector b is of shape (size) and will contain solution vector x.
 */
 int linsolve(
-    const ssize_t size,
+    const Py_ssize_t size,
     double *matrix,
     double *vector)
 {
     double temp;
-    ssize_t i, j, k, m, ks, ms, ksk, js;
+    Py_ssize_t i, j, k, m, ks, ms, ksk, js;
 
     /* forward solution */
     for (k = 0; k < size-1; k++) {
@@ -278,8 +278,8 @@ int linsolve(
 Chebyshev polynomials Tj(t) / Rj.
 */
 int chebypoly(
-    const ssize_t numdata,  /* size of data array t */
-    const ssize_t numcoef,  /* number of polynomial coefficients j */
+    const Py_ssize_t numdata,  /* size of data array t */
+    const Py_ssize_t numcoef,  /* number of polynomial coefficients j */
     double *poly,  /* output array of polynomials of shape (numcoef,numdata) */
     const int norm)  /* normalize coefficients */
 {
@@ -287,7 +287,7 @@ int chebypoly(
     double *ppoly;
     double *a;
     double nf, nm2t, aj, tj, tj1, tj2;
-    ssize_t t, j, ni;
+    Py_ssize_t t, j, ni;
 
     if ((numcoef < 1) || (numdata < 1) ||
         (numcoef > numdata) || (numcoef > MAXCOEF))
@@ -340,11 +340,11 @@ int chebypoly(
 Chebyshev polynomial normalization factors Rj.
 */
 int chebynorm(
-    const ssize_t numdata,  /* size of data array */
-    const ssize_t numcoef,  /* number of polynomials */
+    const Py_ssize_t numdata,  /* size of data array */
+    const Py_ssize_t numcoef,  /* number of polynomials */
     double *norm)  /* output array of shape (numcoef, ) */
 {
-    ssize_t j, t, n;
+    Py_ssize_t j, t, n;
     double f;
 
     if ((numcoef < 1) || (numdata < 1) ||
@@ -368,15 +368,15 @@ Forward Chebyshev transform dj.
 */
 int chebyfwd(
     char *data,  /* array of doubles to be transformed */
-    const ssize_t data_stride,  /* byte stride of data array; 8 if contiguous */
-    const ssize_t numdata,  /* size of data array */
+    const Py_ssize_t data_stride,  /* byte stride of data array */
+    const Py_ssize_t numdata,  /* size of data array */
     double *coef,  /* output array of polynomial coefficients */
-    const ssize_t numcoef)  /* number of polynomials used */
+    const Py_ssize_t numcoef)  /* number of polynomials used */
 {
     double buffer[2*MAXCOEF];
     double *a, *pcoef;
     double nf, nm2t, ft, aj, tj, tj1, tj2;
-    ssize_t t, j, ni;
+    Py_ssize_t t, j, ni;
 
     if ((numcoef < 1) || (numdata < 1) ||
         (numcoef > numdata) || (numcoef > MAXCOEF))
@@ -429,15 +429,15 @@ Inverse discrete Chebyshev transform.
 */
 int chebyinv(
     const double *coef,
-    const ssize_t numcoef,
+    const Py_ssize_t numcoef,
     char *data,
-    const ssize_t data_stride,
-    const ssize_t numdata)
+    const Py_ssize_t data_stride,
+    const Py_ssize_t numdata)
 {
     double buffer[2*MAXCOEF];
     double *a, *pcoef;
     double nf, nm2t, ft, aj, tj, tj1, tj2;
-    ssize_t t, j, ni;
+    Py_ssize_t t, j, ni;
 
     if ((numcoef < 1) || (numdata < 1) ||
         (numcoef > numdata) || (numcoef > MAXCOEF))
@@ -477,22 +477,25 @@ int chebyinv(
 
 /*
 Fit multiple exponential function.
+
+Strides are the number of bytes to move from array value to next.
+
 */
 int fitexps(
     const char *data,  /* data array of doubles */
-    const ssize_t data_stride,  /* number bytes to move from data value to next */
-    const ssize_t numdata,  /* number of double values in data array */
-    const double *poly,  /* precalculated normalized Chebyshev polynomial Tj(t) */
+    const Py_ssize_t data_stride,
+    const Py_ssize_t numdata,  /* number of double values in data array */
+    const double *poly,  /* precalc. normalized Chebyshev polynomial Tj(t) */
     double *coef,  /* buffer for dnj of shape (numexps+1, numcoef+1) */
-    const ssize_t numcoef,  /* number of coefficients */
-    const ssize_t numexps,  /* number of exponentials to fit */
+    const Py_ssize_t numcoef,  /* number of coefficients */
+    const Py_ssize_t numexps,  /* number of exponentials to fit */
     const double deltat,  /* duration between data points */
-    const ssize_t startcoef,  /* start coefficient. usually equals numexps-1 */
+    const Py_ssize_t startcoef,  /* start coefficient. usually numexps-1 */
     double *buff,  /* working buffer of shape (numexps, numdata) */
     double *result,  /* buffer to receive fitted parameters
                         offset, amp[numexps], tau[numexps], frq[numexps] */
     char *fitt,  /* buffer to receive fitted data in double [numpoints] */
-    const ssize_t fitt_stride) /* number bytes to move from fitted value to next */
+    const Py_ssize_t fitt_stride)
 {
     PyThreadState *_save = NULL;
     Py_complex xroots[MAXEXPS];
@@ -514,8 +517,8 @@ int fitexps(
     double *frq = result + 1 + numexps + numexps;
     double sum, temp, frqn, ratn;
     int error;
-    ssize_t j, t, n, N, row, col;
-    const ssize_t stride = numcoef + 1;
+    Py_ssize_t j, t, n, N, row, col;
+    const Py_ssize_t stride = numcoef + 1;
 
     /* discrete Chebyshev coefficients dj */
     ppoly = (double *)poly;
@@ -738,21 +741,24 @@ int fitexps(
 
 /*
 Fit frequency-domain data with photobleaching.
+
+Strides are the number of bytes to move from array value to next.
+
 */
 int fitexpsin(
     const char *data,  /* data array of doubles */
-    const ssize_t data_stride,  /* number of bytes to move from data value to next */
-    const ssize_t numdata,  /* number of double values in data array */
-    const double *poly,  /* precalculated normalized Chebyshev polynomial Tj(t) */
+    const Py_ssize_t data_stride,
+    const Py_ssize_t numdata,  /* number of double values in data array */
+    const double *poly,  /* precalc. normalized Chebyshev polynomial Tj(t) */
     double *coef,  /* buffer for dnj of shape (numexps+1, numcoef+1) */
-    const ssize_t numcoef,  /* number of coefficients */
+    const Py_ssize_t numcoef,  /* number of coefficients */
     const double deltat,  /* duration between data points */
-    const ssize_t startcoef,  /* start coefficient. usually equals numexps-1 */
+    const Py_ssize_t startcoef,  /* start coefficient. usually numexps-1 */
     double *buff,  /* working buffer of shape (numexps, numdata) */
     double *result,  /* buffer to receive fitted parameters
                         offset, tau, amp[3] */
     char *fitt,  /* buffer to receive fitted data in double[numpoints] */
-    const ssize_t fitt_stride)  /* number bytes to move from fitted value to next */
+    const Py_ssize_t fitt_stride)
 {
     PyThreadState *_save = NULL;
     Py_complex xroots[5];
@@ -773,8 +779,8 @@ int fitexpsin(
     double sum, temp, ratn, frqn;
     double cosw, cos2w, t0, t1, t2, t3, t4, t5, t6;
     int error;
-    ssize_t i, j, k, t, n, N, row, col;
-    const ssize_t stride = numcoef + 1;
+    Py_ssize_t i, j, k, t, n, N, row, col;
+    const Py_ssize_t stride = numcoef + 1;
 
     /* discrete Chebyshev coefficients dj */
     ppoly = (double *)poly;
@@ -1077,10 +1083,10 @@ static PyObject* py_fitexps(PyObject *obj, PyObject *args, PyObject *kwds)
     double *poly = NULL;
     double *coef = NULL;
     double *buff = NULL;
-    ssize_t newshape[NPY_MAXDIMS];
-    ssize_t numexps, numdata;
-    ssize_t startcoef = -1;
-    ssize_t numcoef = MAXCOEF;
+    Py_ssize_t newshape[NPY_MAXDIMS];
+    Py_ssize_t numexps, numdata;
+    Py_ssize_t startcoef = -1;
+    Py_ssize_t numcoef = MAXCOEF;
     int error, lastaxis, i, j;
     int axis = NPY_MAXDIMS;
     double deltat = 1.0;
@@ -1258,13 +1264,13 @@ static PyObject* py_fitexpsin(PyObject *obj, PyObject *args, PyObject *kwds)
     PyArrayIterObject *data_it = NULL;
     PyArrayIterObject *fitt_it = NULL;
     PyArrayIterObject *rslt_it = NULL;
-    ssize_t newshape[NPY_MAXDIMS];
+    Py_ssize_t newshape[NPY_MAXDIMS];
     double *poly = NULL;
     double *coef = NULL;
     double *buff = NULL;
-    ssize_t numdata;
-    ssize_t startcoef = -1;
-    ssize_t numcoef = MAXCOEF;
+    Py_ssize_t numdata;
+    Py_ssize_t startcoef = -1;
+    Py_ssize_t numcoef = MAXCOEF;
     int error, lastaxis, i, j;
     int axis = NPY_MAXDIMS;
     double deltat = 1.0;
@@ -1429,9 +1435,9 @@ static PyObject* py_chebyfwd(PyObject *obj, PyObject *args, PyObject *kwds)
 {
     PyArrayObject *data = NULL;
     PyArrayObject *coef = NULL;
-    ssize_t numdata;
-    ssize_t numcoef = MAXCOEF;
-    ssize_t t;
+    Py_ssize_t numdata;
+    Py_ssize_t numcoef = MAXCOEF;
+    Py_ssize_t t;
     int error;
     static char *kwlist[] = {"data", "numcoef", NULL};
 
@@ -1494,9 +1500,9 @@ static PyObject* py_chebyinv(PyObject *obj, PyObject *args, PyObject *kwds)
 {
     PyArrayObject *data = NULL;
     PyArrayObject *coef = NULL;
-    ssize_t numcoef;
-    ssize_t numdata = -1;
-    ssize_t t;
+    Py_ssize_t numcoef;
+    Py_ssize_t numdata = -1;
+    Py_ssize_t t;
     int error;
     static char *kwlist[] = {"coef", "numdata", NULL};
 
@@ -1553,10 +1559,10 @@ static PyObject* py_chebypoly(PyObject *obj, PyObject *args, PyObject *kwds)
 {
     PyObject *boolobj;
     PyArrayObject *poly = NULL;
-    ssize_t numcoef, numdata;
+    Py_ssize_t numcoef, numdata;
     int error;
     int norm = 0;
-    ssize_t shape[2];
+    Py_ssize_t shape[2];
     static char *kwlist[] = {"numdata", "numcoef", "norm", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "nn|O", kwlist,
@@ -1616,7 +1622,7 @@ char py_chebynorm_doc[] =
 static PyObject* py_chebynorm(PyObject *obj, PyObject *args, PyObject *kwds)
 {
     PyArrayObject *norm = NULL;
-    ssize_t numcoef, numdata, t;
+    Py_ssize_t numcoef, numdata, t;
     int error;
     static char *kwlist[] = {"numdata", "numcoef", NULL};
 
@@ -1676,7 +1682,7 @@ static PyObject* py_polyroots(PyObject *obj, PyObject *args, PyObject *kwds)
 {
     PyArrayObject *coeffs = NULL;
     PyArrayObject *result = NULL;
-    ssize_t dims;
+    Py_ssize_t dims;
     int error;
     static char *kwlist[] = {"coeffs", NULL};
 
