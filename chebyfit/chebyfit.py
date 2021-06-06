@@ -1,6 +1,6 @@
 # chebyfit.py
 
-# Copyright (c) 2008-2020, Christoph Gohlke
+# Copyright (c) 2008-2021, Christoph Gohlke
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -46,18 +46,20 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :License: BSD 3-Clause
 
-:Version: 2020.1.1
+:Version: 2021.6.6
 
 Requirements
 ------------
-* `CPython >= 3.6 <https://www.python.org>`_
-* `Numpy 1.14 <https://www.numpy.org>`_
+* `CPython >= 3.7 <https://www.python.org>`_
+* `Numpy 1.15 <https://www.numpy.org>`_
 
 Revisions
 ---------
+2021.6.6
+    Fix compile error on Python 3.10.
+    Remove support for Python 3.6 (NEP 29).
 2020.1.1
     Remove support for Python 2.7 and 3.5.
-    Update copyright.
 2019.10.14
     Support Python 3.8.
     Fix numpy 1type FutureWarning.
@@ -110,11 +112,16 @@ True
 
 """
 
-__version__ = '2020.1.1'
+__version__ = '2021.6.6'
 
 __all__ = (
-    'fit_exponentials', 'fit_harmonic_decay', 'chebyshev_forward',
-    'chebyshev_invers', 'chebyshev_norm', 'chebyshev_polynom', 'polynom_roots'
+    'fit_exponentials',
+    'fit_harmonic_decay',
+    'chebyshev_forward',
+    'chebyshev_invers',
+    'chebyshev_norm',
+    'chebyshev_polynom',
+    'polynom_roots',
 )
 
 import numpy
@@ -162,15 +169,23 @@ def fit_exponentials(data, numexps, deltat=1.0, numcoef=DEFCOEF, axis=-1):
     """
     params, fitted = _chebyfit.fitexps(data, numexps, numcoef, deltat, axis)
     if numexps == 1:
-        dtype = numpy.dtype([('offset', 'f8'),
-                             ('amplitude', 'f8'),
-                             ('rate', 'f8'),
-                             ('frequency', 'f8')])
+        dtype = numpy.dtype(
+            [
+                ('offset', 'f8'),
+                ('amplitude', 'f8'),
+                ('rate', 'f8'),
+                ('frequency', 'f8'),
+            ]
+        )
     else:
-        dtype = numpy.dtype([('offset', 'f8'),
-                             ('amplitude', f'{numexps}f8'),
-                             ('rate', f'{numexps}f8'),
-                             ('frequency', f'{numexps}f8')])
+        dtype = numpy.dtype(
+            [
+                ('offset', 'f8'),
+                ('amplitude', f'{numexps}f8'),
+                ('rate', f'{numexps}f8'),
+                ('frequency', f'{numexps}f8'),
+            ]
+        )
     return params.view(dtype), fitted
 
 
@@ -203,9 +218,9 @@ def fit_harmonic_decay(data, deltat=1.0, numcoef=DEFCOEF, axis=-1):
 
     """
     params, fitted = _chebyfit.fitexpsin(data, numcoef, deltat, axis)
-    dtype = numpy.dtype([('offset', 'f8'),
-                         ('rate', 'f8'),
-                         ('amplitude', '3f8')])
+    dtype = numpy.dtype(
+        [('offset', 'f8'), ('rate', 'f8'), ('amplitude', '3f8')]
+    )
     return params.view(dtype), fitted
 
 
