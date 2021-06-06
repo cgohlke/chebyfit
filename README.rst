@@ -16,18 +16,20 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :License: BSD 3-Clause
 
-:Version: 2020.1.1
+:Version: 2021.6.6
 
 Requirements
 ------------
-* `CPython >= 3.6 <https://www.python.org>`_
-* `Numpy 1.14 <https://www.numpy.org>`_
+* `CPython >= 3.7 <https://www.python.org>`_
+* `Numpy 1.15 <https://www.numpy.org>`_
 
 Revisions
 ---------
+2021.6.6
+    Fix compile error on Python 3.10.
+    Remove support for Python 3.6 (NEP 29).
 2020.1.1
     Remove support for Python 2.7 and 3.5.
-    Update copyright.
 2019.10.14
     Support Python 3.8.
     Fix numpy 1type FutureWarning.
