@@ -1,7 +1,7 @@
 /* chebyfit.c */
 
 /*
-Copyright (c) 2008-2021, Christoph Gohlke
+Copyright (c) 2008-2022, Christoph Gohlke
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -30,26 +30,21 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-/* Fit exponential and harmonic functions using Chebyshev polynomials.
+#define _DOC_ \
+"Fit exponential and harmonic functions using Chebyshev polynomials.\n\
+\n\
+Chebyfit.c is a Python C extension module that provides low level\n\
+implementations for the chebyfit package.\n\
+\n\
+Refer to the chebyfit.py module for a high level API, documentation,\n\
+and tests.\n\
+\n\
+:Author: `Christoph Gohlke <https://www.cgohlke.com>`_\n\
+:License: BSD 3-Clause\n\
+:Version: 2022.8.26\n\
+"
 
-Chebyfit.c is a Python C extension module that provides low level
-implementations for the chebyfit package.
-
-Refer to the chebyfit.py module for a high level API, documentation, and tests.
-
-:Authors:
-  `Christoph Gohlke <https://www.lfd.uci.edu/~gohlke/>`_
-
-:Organization:
-  Laboratory for Fluorescence Dynamics. University of California, Irvine
-
-:License: BSD 3-Clause
-
-:Version: 2021.6.6
-
-*/
-
-#define _VERSION_ "2021.6.6"
+#define _VERSION_ "2022.8.26"
 
 #define WIN32_LEAN_AND_MEAN
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
@@ -1724,10 +1719,6 @@ static PyObject* py_polyroots(PyObject *obj, PyObject *args, PyObject *kwds)
 /*****************************************************************************/
 /* Python module */
 
-char module_doc[] =
-    "Fit exponential and harmonic functions using Chebyshev polynomials.\n\n"
-    "Refer to the chebyfit package for documentation and tests.\n";
-
 static PyMethodDef module_methods[] = {
     {"fitexps", (PyCFunction)py_fitexps,
         METH_VARARGS|METH_KEYWORDS, py_fitexps_doc},
@@ -1779,9 +1770,8 @@ PyInit__chebyfit(void)
 {
     PyObject *module;
 
-    char *doc = (char *)PyMem_Malloc(sizeof(module_doc) + sizeof(_VERSION_));
-    PyOS_snprintf(doc, sizeof(module_doc) + sizeof(_VERSION_),
-                  module_doc, _VERSION_);
+    char *doc = (char *)PyMem_Malloc(sizeof(_DOC_) + sizeof(_VERSION_));
+    PyOS_snprintf(doc, sizeof(_DOC_) + sizeof(_VERSION_), _DOC_, _VERSION_);
 
     moduledef.m_doc = doc;
     module = PyModule_Create(&moduledef);
