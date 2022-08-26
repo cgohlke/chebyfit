@@ -8,40 +8,54 @@ Chebyfit is a Python library that implements the algorithms described in:
     photobleaching. G C Malachowski, R M Clegg, and G I Redford.
     J Microsc. 2007; 228(3): 282-295. doi: 10.1111/j.1365-2818.2007.01846.x
 
-:Author:
-  `Christoph Gohlke <https://www.lfd.uci.edu/~gohlke/>`_
-
-:Organization:
-  Laboratory for Fluorescence Dynamics. University of California, Irvine
-
+:Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD 3-Clause
-
-:Version: 2021.6.6
+:Version: 2022.8.26
 
 Requirements
 ------------
-* `CPython >= 3.7 <https://www.python.org>`_
-* `Numpy 1.15 <https://www.numpy.org>`_
+
+This release has been tested with the following requirements and dependencies
+(other versions may work):
+
+- `CPython 3.8.10, 3.9.13, 3.10.6, 3.11.0rc1 <https://www.python.org>`_
+- `NumPy 1.22.4 <https://pypi.org/project/numpy/>`_
 
 Revisions
 ---------
+
+2022.8.26
+
+- Update metadata
+- Remove support for Python 3.7 (NEP 29).
+
 2021.6.6
-    Fix compile error on Python 3.10.
-    Remove support for Python 3.6 (NEP 29).
+
+- Fix compile error on Python 3.10.
+- Remove support for Python 3.6 (NEP 29).
+
 2020.1.1
-    Remove support for Python 2.7 and 3.5.
+
+- Remove support for Python 2.7 and 3.5.
+
 2019.10.14
-    Support Python 3.8.
-    Fix numpy 1type FutureWarning.
+
+- Support Python 3.8.
+- Fix numpy 1type FutureWarning.
+
 2019.4.22
-    Fix setup requirements.
+
+- Fix setup requirements.
+
 2019.1.28
-    Move modules into chebyfit package.
-    Add Python wrapper for _chebyfit C extension module.
-    Fix static analysis issues in _chebyfit.c.
+
+- Move modules into chebyfit package.
+- Add Python wrapper for _chebyfit C extension module.
+- Fix static analysis issues in _chebyfit.c.
 
 Examples
 --------
+
 Fit two-exponential decay function:
 
 >>> deltat = 0.5
