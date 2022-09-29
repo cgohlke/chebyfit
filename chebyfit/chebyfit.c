@@ -41,10 +41,10 @@ and tests.\n\
 \n\
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_\n\
 :License: BSD 3-Clause\n\
-:Version: 2022.8.26\n\
+:Version: 2022.9.29\n\
 "
 
-#define _VERSION_ "2022.8.26"
+#define _VERSION_ "2022.9.29"
 
 #define WIN32_LEAN_AND_MEAN
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
