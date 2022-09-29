@@ -40,7 +40,7 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD 3-Clause
-:Version: 2022.8.26
+:Version: 2022.9.29
 
 Requirements
 ------------
@@ -48,15 +48,20 @@ Requirements
 This release has been tested with the following requirements and dependencies
 (other versions may work):
 
-- `CPython 3.8.10, 3.9.13, 3.10.6, 3.11.0rc1 <https://www.python.org>`_
+- `CPython 3.8.10, 3.9.13, 3.10.7, 3.11.0rc2 <https://www.python.org>`_
 - `NumPy 1.22.4 <https://pypi.org/project/numpy/>`_
 
 Revisions
 ---------
 
+2022.9.29
+
+- Add type hints.
+- Convert to Google style docstrings.
+
 2022.8.26
 
-- Update metadata
+- Update metadata.
 - Remove support for Python 3.7 (NEP 29).
 
 2021.6.6
@@ -126,9 +131,11 @@ True
 
 """
 
-__version__ = '2022.8.26'
+from __future__ import annotations
 
-__all__ = (
+__version__ = '2022.9.29'
+
+__all__ = [
     'fit_exponentials',
     'fit_harmonic_decay',
     'chebyshev_forward',
@@ -136,7 +143,7 @@ __all__ = (
     'chebyshev_norm',
     'chebyshev_polynom',
     'polynom_roots',
-)
+]
 
 import numpy
 
@@ -146,39 +153,52 @@ except ImportError:
     import _chebyfit  # type: ignore
 
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    try:
+        from numpy.typing import ArrayLike
+    except ImportError:
+        # numpy < 1.20
+        from numpy import ndarray as ArrayLike
+
 MAXEXPS = 8
 MAXCOEF = 64
 DEFCOEF = 32
 
 
-def fit_exponentials(data, numexps, deltat=1.0, numcoef=DEFCOEF, axis=-1):
+def fit_exponentials(
+    data: ArrayLike,
+    numexps: int,
+    deltat: float = 1.0,
+    numcoef: int = DEFCOEF,
+    axis: int = -1,
+) -> tuple[numpy.ndarray, numpy.ndarray]:
     """Fit multi-exponential functions.
 
     Can be used to fit time-domain fluorescence image data.
 
-    Parameters
-    ----------
-    data : array_like
-        Experimental data (observed values of the dependent variable).
-        Will be converted to float64.
-    numexps : int
-        Number of exponentials to fit (1-8).
-    deltat : float
-        Time difference in seconds between data points along time-axis
-        (defines the independent variable).
-    numcoef : int
-        Number of polynomial coefficients to use (default: 64).
-    axis : int
-        Index of time-axis along which to fit the data (default: last axis).
+    Parameters:
+        data :
+            Experimental data (observed values of the dependent variable).
+            Will be converted to float64.
+        numexps:
+            Number of exponentials to fit (1-8).
+        deltat:
+            Time difference in seconds between data points along time-axis
+            (defines the independent variable).
+        numcoef:
+            Number of polynomial coefficients to use (default: 32).
+        axis:
+            Index of time-axis along which to fit the data.
 
-    Returns
-    -------
-    params : numpy.recarray of float64
-        Array of fitting parameters:
-        offset, amplitude[numexps], rate[numexps], frequency[numexps].
-    fitted : numpy.ndarray of float64
-        Fitted data (predicted value of the dependent variable).
-        Same shape as data.
+    Returns:
+        params:
+            Numpy.recarray of fitting parameters:
+            offset, amplitude[numexps], rate[numexps], frequency[numexps].
+        fitted:
+            Fitted data (predicted value of the dependent variable).
+            Same shape as data.
 
     """
     params, fitted = _chebyfit.fitexps(data, numexps, numcoef, deltat, axis)
@@ -203,32 +223,35 @@ def fit_exponentials(data, numexps, deltat=1.0, numcoef=DEFCOEF, axis=-1):
     return params.view(dtype), fitted
 
 
-def fit_harmonic_decay(data, deltat=1.0, numcoef=DEFCOEF, axis=-1):
+def fit_harmonic_decay(
+    data: ArrayLike,
+    deltat: float = 1.0,
+    numcoef: int = DEFCOEF,
+    axis: int = -1,
+) -> tuple[numpy.ndarray, numpy.ndarray]:
     """Fit harmonic functions with exponential decay.
 
     Can be used to fit frequency-domain fluorescence image data with
     photobleaching.
 
-    Parameters
-    ----------
-    data : array_like
-        Experimental data (observed values of the dependent variable).
-        Will be converted to float64.
-    deltat : float
-        Time difference in seconds between data points along time-axis
-        (defines the independent variable).
-    numcoef : int
-        Number of polynomial coefficients to use (default: 64).
-    axis : int
-        Index of time-axis along which to fit the data (default: last axis).
+    Parameters:
+        data:
+            Experimental data (observed values of the dependent variable).
+            Will be converted to float64.
+        deltat:
+            Time difference in seconds between data points along time-axis
+            (defines the independent variable).
+        numcoef:
+            Number of polynomial coefficients to use (default: 32).
+        axis:
+            Index of time-axis along which to fit the data.
 
-    Returns
-    -------
-    params : numpy.recarray of float64
-        Array of fitting parameters: offset, rate, amplitude[3].
-    fitted : numpy.ndarray of float64
-        Fitted data (predicted value of the dependent variable).
-        Same shape as data.
+    Returns:
+        params:
+            Numpy.recarray of fitting parameters: offset, rate, amplitude[3].
+        fitted:
+            Fitted data (predicted value of the dependent variable).
+            Same shape as data.
 
     """
     params, fitted = _chebyfit.fitexpsin(data, numcoef, deltat, axis)
@@ -238,7 +261,9 @@ def fit_harmonic_decay(data, deltat=1.0, numcoef=DEFCOEF, axis=-1):
     return params.view(dtype), fitted
 
 
-def chebyshev_forward(data, numcoef=DEFCOEF):
+def chebyshev_forward(
+    data: ArrayLike, numcoef: int = DEFCOEF
+) -> numpy.ndarray:
     """Return coefficients dj of forward Chebyshev transform from data.
 
     >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32) / 3.3)
@@ -249,7 +274,7 @@ def chebyshev_forward(data, numcoef=DEFCOEF):
     return _chebyfit.chebyfwd(data, numcoef)
 
 
-def chebyshev_invers(coef, numdata):
+def chebyshev_invers(coef: ArrayLike, numdata: int) -> numpy.ndarray:
     """Return reconstructed data from Chebyshev coefficients dj.
 
     >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32) / 3.3)
@@ -261,7 +286,7 @@ def chebyshev_invers(coef, numdata):
     return _chebyfit.chebyinv(coef, numdata)
 
 
-def chebyshev_norm(numdata, numcoef=DEFCOEF):
+def chebyshev_norm(numdata: int, numcoef: int = DEFCOEF) -> numpy.ndarray:
     """Return Chebyshev polynomial normalization factors Rj.
 
     >>> chebyshev_norm(4, 4)
@@ -271,7 +296,9 @@ def chebyshev_norm(numdata, numcoef=DEFCOEF):
     return _chebyfit.chebynorm(numdata, numcoef)
 
 
-def chebyshev_polynom(numdata, numcoef=DEFCOEF, norm=False):
+def chebyshev_polynom(
+    numdata: int, numcoef: int = DEFCOEF, norm: bool = False
+) -> numpy.ndarray:
     """Return Chebyshev polynomials Tj(t) / Rj.
 
     >>> chebyshev_polynom(numdata=4, numcoef=2, norm=False)
@@ -282,7 +309,7 @@ def chebyshev_polynom(numdata, numcoef=DEFCOEF, norm=False):
     return _chebyfit.chebypoly(numdata, numcoef, norm)
 
 
-def polynom_roots(coeffs):
+def polynom_roots(coeffs: ArrayLike) -> numpy.ndarray:
     """Return complex roots of complex polynomial using Laguerre's method.
 
     Complex polynomial coefficients ordered from smallest to largest power.
