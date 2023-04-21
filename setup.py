@@ -25,7 +25,7 @@ version = search(r"__version__ = '(.*?)'", code)
 description = search(r'"""(.*)\.(?:\r\n|\r|\n)', code)
 
 readme = search(
-    r'(?:\r\n|\r|\n){2}"""(.*)"""(?:\r\n|\r|\n){2}[__version__|from]',
+    r'(?:\r\n|\r|\n){2}"""(.*)"""(?:\r\n|\r|\n){2}from __future__',
     code,
     re.MULTILINE | re.DOTALL,
 )
@@ -78,9 +78,9 @@ setup(
         'Source Code': 'https://github.com/cgohlke/chebyfit',
         # 'Documentation': 'https://',
     },
-    python_requires='>=3.8',
-    install_requires=['numpy>=1.19.2'],
-    setup_requires=['setuptools>=18.0', 'numpy>=1.19.2'],
+    python_requires='>=3.9',
+    install_requires=['numpy'],
+    setup_requires=['setuptools', 'numpy'],
     cmdclass={'build_ext': build_ext},
     packages=['chebyfit'],
     ext_modules=[Extension('chebyfit._chebyfit', ['chebyfit/chebyfit.c'])],
@@ -95,7 +95,6 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: C',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
