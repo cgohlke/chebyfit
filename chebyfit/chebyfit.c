@@ -1,7 +1,7 @@
 /* chebyfit.c */
 
 /*
-Copyright (c) 2008-2022, Christoph Gohlke
+Copyright (c) 2008-2023, Christoph Gohlke
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@ and tests.\n\
 :Version: 2022.9.29\n\
 "
 
-#define _VERSION_ "2022.9.29"
+#define _VERSION_ "2023.4.22"
 
 #define WIN32_LEAN_AND_MEAN
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
