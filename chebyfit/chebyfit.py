@@ -1,6 +1,6 @@
 # chebyfit.py
 
-# Copyright (c) 2008-2022, Christoph Gohlke
+# Copyright (c) 2008-2023, Christoph Gohlke
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -40,19 +40,36 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD 3-Clause
-:Version: 2022.9.29
+:Version: 2023.4.22
+
+Quickstart
+----------
+
+Install the chebyfit package and all dependencies from the
+`Python Package Index <https://pypi.org/project/chebyfit/>`_::
+
+    python -m pip install -U chebyfit
+
+See `Examples`_ for using the programming interface.
+
+Source code and support are available on
+`GitHub <https://github.com/cgohlke/chebyfit>`_.
 
 Requirements
 ------------
 
-This release has been tested with the following requirements and dependencies
+This revision was tested with the following requirements and dependencies
 (other versions may work):
 
-- `CPython 3.8.10, 3.9.13, 3.10.7, 3.11.0rc2 <https://www.python.org>`_
-- `NumPy 1.22.4 <https://pypi.org/project/numpy/>`_
+- `CPython <https://www.python.org>`_ 3.9.13, 3.10.11, 3.11.3
+- `NumPy <https://pypi.org/project/numpy/>`_ 1.23.5
 
 Revisions
 ---------
+
+2023.4.22
+
+- Drop support for Python 3.8 and numpy < 1.21 (NEP29).
 
 2022.9.29
 
@@ -133,7 +150,7 @@ True
 
 from __future__ import annotations
 
-__version__ = '2022.9.29'
+__version__ = '2023.4.22'
 
 __all__ = [
     'fit_exponentials',
@@ -156,11 +173,7 @@ except ImportError:
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    try:
-        from numpy.typing import ArrayLike
-    except ImportError:
-        # numpy < 1.20
-        from numpy import ndarray as ArrayLike
+    from numpy.typing import ArrayLike
 
 MAXEXPS = 8
 MAXCOEF = 64
