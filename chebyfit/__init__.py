@@ -1,4 +1,4 @@
 # chebyfit/__init__.py
 
-from .chebyfit import __doc__, __all__, __version__
 from .chebyfit import *
+from .chebyfit import __all__, __doc__, __version__
