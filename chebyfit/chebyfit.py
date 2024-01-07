@@ -1,6 +1,6 @@
 # chebyfit.py
 
-# Copyright (c) 2008-2023, Christoph Gohlke
+# Copyright (c) 2008-2024, Christoph Gohlke
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD 3-Clause
-:Version: 2023.4.22
+:Version: 2024.1.6
 
 Quickstart
 ----------
@@ -61,11 +61,15 @@ Requirements
 This revision was tested with the following requirements and dependencies
 (other versions may work):
 
-- `CPython <https://www.python.org>`_ 3.9.13, 3.10.11, 3.11.3
-- `NumPy <https://pypi.org/project/numpy/>`_ 1.23.5
+- `CPython <https://www.python.org>`_ 3.9.13, 3.10.11, 3.11.7, 3.12.1
+- `NumPy <https://pypi.org/project/numpy/>`_ 1.26.3
 
 Revisions
 ---------
+
+2024.1.6
+
+- Support Python 3.12.
 
 2023.4.22
 
@@ -150,7 +154,7 @@ True
 
 from __future__ import annotations
 
-__version__ = '2023.4.22'
+__version__ = '2024.1.6'
 
 __all__ = [
     'fit_exponentials',
@@ -168,7 +172,6 @@ try:
     from . import _chebyfit
 except ImportError:
     import _chebyfit  # type: ignore
-
 
 from typing import TYPE_CHECKING
 
@@ -335,13 +338,13 @@ def polynom_roots(coeffs: ArrayLike) -> numpy.ndarray:
 
 
 if __name__ == '__main__':
-    import os
-    import math  # noqa: required by doctests
     import doctest
+    import math  # noqa: required by doctests
+    import os
 
     try:
         os.chdir('tests')
     except Exception:
         pass
     numpy.set_printoptions(suppress=True, precision=2)
-    doctest.testmod()
+    doctest.testmod(optionflags=doctest.ELLIPSIS)
