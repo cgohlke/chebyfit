@@ -67,6 +67,7 @@ setup(
     },
     python_requires='>=3.9',
     install_requires=['numpy'],
+    extras_require={'all': ['matplotlib']},
     packages=['chebyfit'],
     package_data={'chebyfit': ['examples/*.py', 'py.typed']},
     ext_modules=[
