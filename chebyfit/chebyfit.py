@@ -40,7 +40,7 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD 3-Clause
-:Version: 2024.1.6
+:Version: 2024.4.24
 
 Quickstart
 ----------
@@ -61,11 +61,15 @@ Requirements
 This revision was tested with the following requirements and dependencies
 (other versions may work):
 
-- `CPython <https://www.python.org>`_ 3.9.13, 3.10.11, 3.11.7, 3.12.1
-- `NumPy <https://pypi.org/project/numpy/>`_ 1.26.3
+- `CPython <https://www.python.org>`_ 3.9.13, 3.10.11, 3.11.9, 3.12.3
+- `NumPy <https://pypi.org/project/numpy/>`_ 1.26.4
 
 Revisions
 ---------
+
+2024.4.24
+
+- Support NumPy 2.
 
 2024.1.6
 
@@ -154,7 +158,7 @@ True
 
 from __future__ import annotations
 
-__version__ = '2024.1.6'
+__version__ = '2024.4.24'
 
 __all__ = [
     'fit_exponentials',
