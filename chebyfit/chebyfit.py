@@ -40,7 +40,7 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD 3-Clause
-:Version: 2024.4.24
+:Version: 2024.5.24
 
 Quickstart
 ----------
@@ -66,6 +66,10 @@ This revision was tested with the following requirements and dependencies
 
 Revisions
 ---------
+
+2024.5.24
+
+- Fix docstring examples not correctly rendered on GitHub.
 
 2024.4.24
 
@@ -134,8 +138,9 @@ array([[55.5, 33.3]])
 Fit harmonic function with exponential decay:
 
 >>> tt = t * (2 * math.pi / (t[-1] + deltat))
->>> data = 1.1 + numpy.exp(-t / 22.2) * (3.3 - 4.4 * numpy.sin(tt)
-...                                          + 5.5 * numpy.cos(tt))
+>>> data = 1.1 + numpy.exp(-t / 22.2) * (
+...     3.3 - 4.4 * numpy.sin(tt) + 5.5 * numpy.cos(tt)
+... )
 >>> params, fitted = fit_harmonic_decay(data, deltat=0.5)
 >>> numpy.allclose(data, fitted)
 True
@@ -149,7 +154,7 @@ array([[3.3, 4.4, 5.5]])
 Fit experimental time-domain image:
 
 >>> data = numpy.fromfile('test.b&h', dtype='float32').reshape((256, 256, 256))
->>> data = data[64:64+64]
+>>> data = data[64 : 64 + 64]
 >>> params, fitted = fit_exponentials(data, numexps=1, numcoef=16, axis=0)
 >>> numpy.allclose(data.sum(axis=0), fitted.sum(axis=0))
 True
@@ -158,7 +163,7 @@ True
 
 from __future__ import annotations
 
-__version__ = '2024.4.24'
+__version__ = '2024.5.24'
 
 __all__ = [
     'fit_exponentials',
@@ -334,7 +339,7 @@ def polynom_roots(coeffs: ArrayLike) -> numpy.ndarray:
 
     Complex polynomial coefficients ordered from smallest to largest power.
 
-    >>> polynom_roots([-250., 155., -9., -5., 1.])
+    >>> polynom_roots([-250.0, 155.0, -9.0, -5.0, 1.0])
     array([ 2.+0.j,  4.-3.j,  4.+3.j, -5.+0.j])
 
     """
