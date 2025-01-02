@@ -1,6 +1,6 @@
 # chebyfit.py
 
-# Copyright (c) 2008-2024, Christoph Gohlke
+# Copyright (c) 2008-2025, Christoph Gohlke
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD 3-Clause
-:Version: 2024.5.24
+:Version: 2025.1.1
 
 Quickstart
 ----------
@@ -61,11 +61,16 @@ Requirements
 This revision was tested with the following requirements and dependencies
 (other versions may work):
 
-- `CPython <https://www.python.org>`_ 3.9.13, 3.10.11, 3.11.9, 3.12.3
-- `NumPy <https://pypi.org/project/numpy/>`_ 1.26.4
+- `CPython <https://www.python.org>`_ 3.10.11, 3.11.9, 3.12.8, 3.13.1 64-bit
+- `NumPy <https://pypi.org/project/numpy/>`_ 2.1.3
 
 Revisions
 ---------
+
+2025.1.1
+
+- Improve type hints.
+- Drop support for Python 3.9, support Python 3.13.
 
 2024.5.24
 
@@ -91,16 +96,16 @@ Revisions
 2022.8.26
 
 - Update metadata.
-- Remove support for Python 3.7 (NEP 29).
+- Drop support for Python 3.7 (NEP 29).
 
 2021.6.6
 
 - Fix compile error on Python 3.10.
-- Remove support for Python 3.6 (NEP 29).
+- Drop support for Python 3.6 (NEP 29).
 
 2020.1.1
 
-- Remove support for Python 2.7 and 3.5.
+- Drop support for Python 2.7 and 3.5.
 
 2019.10.14
 
@@ -163,9 +168,10 @@ True
 
 from __future__ import annotations
 
-__version__ = '2024.5.24'
+__version__ = '2025.1.1'
 
 __all__ = [
+    '__version__',
     'fit_exponentials',
     'fit_harmonic_decay',
     'chebyshev_forward',
@@ -178,11 +184,11 @@ __all__ = [
 import numpy
 
 try:
-    from . import _chebyfit
+    from . import _chebyfit  # type: ignore[attr-defined]
 except ImportError:
-    import _chebyfit  # type: ignore
+    import _chebyfit
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike
@@ -198,7 +204,7 @@ def fit_exponentials(
     deltat: float = 1.0,
     numcoef: int = DEFCOEF,
     axis: int = -1,
-) -> tuple[numpy.ndarray, numpy.ndarray]:
+) -> tuple[numpy.ndarray[Any, Any], numpy.ndarray[Any, Any]]:
     """Fit multi-exponential functions.
 
     Can be used to fit time-domain fluorescence image data.
@@ -253,7 +259,7 @@ def fit_harmonic_decay(
     deltat: float = 1.0,
     numcoef: int = DEFCOEF,
     axis: int = -1,
-) -> tuple[numpy.ndarray, numpy.ndarray]:
+) -> tuple[numpy.ndarray[Any, Any], numpy.ndarray[Any, Any]]:
     """Fit harmonic functions with exponential decay.
 
     Can be used to fit frequency-domain fluorescence image data with
@@ -288,7 +294,7 @@ def fit_harmonic_decay(
 
 def chebyshev_forward(
     data: ArrayLike, numcoef: int = DEFCOEF
-) -> numpy.ndarray:
+) -> numpy.ndarray[Any, Any]:
     """Return coefficients dj of forward Chebyshev transform from data.
 
     >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32) / 3.3)
@@ -296,10 +302,10 @@ def chebyshev_forward(
     array([1.36, 0.61, 0.61, 0.41, 0.2 , 0.08, 0.03, 0.01])
 
     """
-    return _chebyfit.chebyfwd(data, numcoef)
+    return numpy.asarray(_chebyfit.chebyfwd(data, numcoef))
 
 
-def chebyshev_invers(coef: ArrayLike, numdata: int) -> numpy.ndarray:
+def chebyshev_invers(coef: ArrayLike, numdata: int) -> numpy.ndarray[Any, Any]:
     """Return reconstructed data from Chebyshev coefficients dj.
 
     >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32) / 3.3)
@@ -308,22 +314,24 @@ def chebyshev_invers(coef: ArrayLike, numdata: int) -> numpy.ndarray:
     True
 
     """
-    return _chebyfit.chebyinv(coef, numdata)
+    return numpy.asarray(_chebyfit.chebyinv(coef, numdata))
 
 
-def chebyshev_norm(numdata: int, numcoef: int = DEFCOEF) -> numpy.ndarray:
+def chebyshev_norm(
+    numdata: int, numcoef: int = DEFCOEF
+) -> numpy.ndarray[Any, Any]:
     """Return Chebyshev polynomial normalization factors Rj.
 
     >>> chebyshev_norm(4, 4)
     array([ 4.  ,  2.22,  4.  , 20.  ])
 
     """
-    return _chebyfit.chebynorm(numdata, numcoef)
+    return numpy.asarray(_chebyfit.chebynorm(numdata, numcoef))
 
 
 def chebyshev_polynom(
     numdata: int, numcoef: int = DEFCOEF, norm: bool = False
-) -> numpy.ndarray:
+) -> numpy.ndarray[Any, Any]:
     """Return Chebyshev polynomials Tj(t) / Rj.
 
     >>> chebyshev_polynom(numdata=4, numcoef=2, norm=False)
@@ -331,10 +339,10 @@ def chebyshev_polynom(
            [ 1.  ,  0.33, -0.33, -1.  ]])
 
     """
-    return _chebyfit.chebypoly(numdata, numcoef, norm)
+    return numpy.asarray(_chebyfit.chebypoly(numdata, numcoef, norm))
 
 
-def polynom_roots(coeffs: ArrayLike) -> numpy.ndarray:
+def polynom_roots(coeffs: ArrayLike) -> numpy.ndarray[Any, Any]:
     """Return complex roots of complex polynomial using Laguerre's method.
 
     Complex polynomial coefficients ordered from smallest to largest power.
@@ -343,7 +351,7 @@ def polynom_roots(coeffs: ArrayLike) -> numpy.ndarray:
     array([ 2.+0.j,  4.-3.j,  4.+3.j, -5.+0.j])
 
     """
-    return _chebyfit.polyroots(coeffs)
+    return numpy.asarray(_chebyfit.polyroots(coeffs))
 
 
 if __name__ == '__main__':
