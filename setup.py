@@ -8,8 +8,10 @@ import sys
 import numpy
 from setuptools import Extension, setup
 
+buildnumber = ''
 
-def search(pattern, string, flags=0):
+
+def search(pattern: str, string: str, flags: int = 0) -> str:
     """Return first match of pattern in string."""
     match = re.search(pattern, string, flags)
     if match is None:
@@ -17,7 +19,7 @@ def search(pattern, string, flags=0):
     return match.groups()[0]
 
 
-def fix_docstring_examples(docstring):
+def fix_docstring_examples(docstring: str) -> str:
     """Return docstring with examples fixed for GitHub."""
     start = True
     indent = False
@@ -39,6 +41,7 @@ with open('chebyfit/chebyfit.py', encoding='utf-8') as fh:
     code = fh.read()
 
 version = search(r"__version__ = '(.*?)'", code).replace('.x.x', '.dev0')
+version += ('.' + buildnumber) if buildnumber else ''
 
 description = search(r'"""(.*)\.(?:\r\n|\r|\n)', code)
 
@@ -65,14 +68,13 @@ if 'sdist' in sys.argv:
     license = license.replace('# ', '').replace('#', '')
 
     with open('LICENSE', 'w', encoding='utf-8') as fh:
-        fh.write('BSD 3-Clause License\n\n')
+        fh.write('BSD-3-Clause license\n\n')
         fh.write(license)
-
 
 setup(
     name='chebyfit',
     version=version,
-    license='BSD',
+    license='BSD-3-Clause',
     description=description,
     long_description=readme,
     long_description_content_type='text/x-rst',
@@ -84,7 +86,7 @@ setup(
         'Source Code': 'https://github.com/cgohlke/chebyfit',
         # 'Documentation': 'https://',
     },
-    python_requires='>=3.10',
+    python_requires='>=3.11',
     install_requires=['numpy'],
     extras_require={'all': ['matplotlib']},
     packages=['chebyfit'],
@@ -99,16 +101,15 @@ setup(
     zip_safe=False,
     platforms=['any'],
     classifiers=[
-        'Development Status :: 4 - Beta',
-        'License :: OSI Approved :: BSD License',
+        'Development Status :: 7 - Inactive',
         'Intended Audience :: Science/Research',
         'Intended Audience :: Developers',
         'Operating System :: OS Independent',
         'Programming Language :: C',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
     ],
 )
