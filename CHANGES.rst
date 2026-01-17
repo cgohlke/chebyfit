@@ -1,0 +1,67 @@
+Revisions
+---------
+
+2026.1.18
+
+- Rename chebyshev_invers to chebyshev_inverse (breaking).
+- Use multi-phase initialization.
+- Improve code quality.
+
+2025.8.1
+
+- Drop support for Python 3.10, support Python 3.14.
+
+2025.1.1
+
+- Improve type hints.
+- Drop support for Python 3.9, support Python 3.13.
+
+2024.5.24
+
+- Fix docstring examples not correctly rendered on GitHub.
+
+2024.4.24
+
+- Support NumPy 2.
+
+2024.1.6
+
+- Support Python 3.12.
+
+2023.4.22
+
+- Drop support for Python 3.8 and numpy < 1.21 (NEP29).
+
+2022.9.29
+
+- Add type hints.
+- Convert to Google style docstrings.
+
+2022.8.26
+
+- Update metadata.
+- Drop support for Python 3.7 (NEP 29).
+
+2021.6.6
+
+- Fix compile error on Python 3.10.
+- Drop support for Python 3.6 (NEP 29).
+
+2020.1.1
+
+- Drop support for Python 2.7 and 3.5.
+
+2019.10.14
+
+- Support Python 3.8.
+- Fix numpy 1type FutureWarning.
+
+2019.4.22
+
+- Fix setup requirements.
+
+2019.1.28
+
+- Move modules into chebyfit package.
+- Add Python wrapper for _chebyfit C extension module.
+- Fix static analysis issues in _chebyfit.c.
