@@ -1,7 +1,7 @@
 /* chebyfit.c */
 
 /*
-Copyright (c) 2008-2025, Christoph Gohlke
+Copyright (c) 2008-2026, Christoph Gohlke
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -41,13 +41,13 @@ and tests.\n\
 \n\
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_\n\
 :License: BSD 3-Clause\n\
-:Version: 2025.8.1\n\
+:Version: 2026.1.18\n\
 "
 
-#define _VERSION_ "2025.8.1"
+#define _VERSION_ "2026.1.18"
 
 #define WIN32_LEAN_AND_MEAN
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 
 #include "Python.h"
 #include "math.h"
@@ -62,11 +62,6 @@ and tests.\n\
 #define TWOPI 6.283185307179586476925286766559
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795
-#endif
-
-#if defined(_MSC_VER) && (_MSC_VER <= 1600)
-#define fmax max
-#define fmin min
 #endif
 
 /*****************************************************************************/
@@ -1518,6 +1513,10 @@ static PyObject* py_chebyinv(PyObject *obj, PyObject *args, PyObject *kwds)
         goto _fail;
     }
 
+    if (numdata < 1) {
+        PyErr_Format(PyExc_ValueError, "numdata must be positive");
+        goto _fail;
+    }
     t = numdata;
     data = (PyArrayObject *)PyArray_SimpleNew(1, &t, NPY_DOUBLE);
     if (data == NULL) {
@@ -1568,6 +1567,9 @@ static PyObject* py_chebypoly(PyObject *obj, PyObject *args, PyObject *kwds)
 
     if (boolobj != NULL) {
         norm = PyObject_IsTrue(boolobj);
+        if (norm == -1) {
+            goto _fail;
+        }
     }
 
     if ((numcoef < 1) || (numcoef > MAXCOEF)) {
@@ -1753,13 +1755,33 @@ static int module_clear(PyObject *m) {
     return 0;
 }
 
+static int module_exec(PyObject *module) {
+    if (_import_array() < 0) {
+        return -1;
+    }
+    PyObject *s = PyUnicode_FromString(_VERSION_);
+    if (!s) return -1;
+    PyObject *dict = PyModule_GetDict(module);
+    if (PyDict_SetItemString(dict, "__version__", s) < 0) {
+        Py_DECREF(s);
+        return -1;
+    }
+    Py_DECREF(s);
+    return 0;
+}
+
+static struct PyModuleDef_Slot module_slots[] = {
+    {Py_mod_exec, module_exec},
+    {0, NULL}
+};
+
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     "_chebyfit",
-    NULL,
+    _DOC_,
     sizeof(struct module_state),
     module_methods,
-    NULL,
+    module_slots,
     module_traverse,
     module_clear,
     NULL
@@ -1768,39 +1790,5 @@ static struct PyModuleDef moduledef = {
 PyMODINIT_FUNC
 PyInit__chebyfit(void)
 {
-    PyObject *module;
-
-    char *doc = (char *)PyMem_Malloc(sizeof(_DOC_) + sizeof(_VERSION_));
-    PyOS_snprintf(doc, sizeof(_DOC_) + sizeof(_VERSION_), _DOC_, _VERSION_);
-
-    moduledef.m_doc = doc;
-    module = PyModule_Create(&moduledef);
-
-    PyMem_Free(doc);
-
-    if (module == NULL) {
-        return NULL;
-    }
-
-#ifdef Py_GIL_DISABLED
-    /* this module supports running with the GIL disabled */
-    if (PyUnstable_Module_SetGIL(module, Py_MOD_GIL_NOT_USED) < 0) {
-        Py_DECREF(module);
-        return NULL;
-    }
-#endif
-
-    if (_import_array() < 0) {
-        Py_DECREF(module);
-        return NULL;
-    }
-
-    {
-    PyObject *s = PyUnicode_FromString(_VERSION_);
-    PyObject *dict = PyModule_GetDict(module);
-    PyDict_SetItemString(dict, "__version__", s);
-    Py_DECREF(s);
-    }
-
-    return module;
+    return PyModuleDef_Init(&moduledef);
 }
