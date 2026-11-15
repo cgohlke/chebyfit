@@ -1,5 +1,16 @@
+..
+  This file is updated by setup.py. Do not edit.
+
 Revisions
----------
+=========
+
+2026.11.15
+
+- Fix buffer overflows in fit_harmonic_decay and for numcoef=1.
+- Fix singular matrix detection and improve polynomial root finding.
+- Fix out-of-bounds axis, byte-swapped, and non-contiguous input handling.
+- Use common array converters and helper functions in C extensions.
+- Improve error messages.
 
 2026.8.8
 
