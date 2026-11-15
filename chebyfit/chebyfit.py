@@ -40,7 +40,7 @@ Chebyfit is a Python library that implements the algorithms described in:
 
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD 3-Clause
-:Version: 2026.8.8
+:Version: 2026.11.15
 
 Quickstart
 ----------
@@ -61,11 +61,19 @@ Requirements
 This revision was tested with the following requirements and dependencies
 (other versions may work):
 
-- `CPython <https://www.python.org>`_ 3.12.10, 3.13.15, 3.14.7, 3.15.0rc 64-bit
-- `Numpy <https://pypi.org/project/numpy>`_ 2.5.2
+- `CPython <https://www.python.org>`_ 3.12.10, 3.13.17, 3.14.10, 3.15.2 64-bit
+- `Numpy <https://pypi.org/project/numpy>`_ 2.5.4
 
 Revisions
 ---------
+
+2026.11.15
+
+- Fix buffer overflows in fit_harmonic_decay and for numcoef=1.
+- Fix singular matrix detection and improve polynomial root finding.
+- Fix out-of-bounds axis, byte-swapped, and non-contiguous input handling.
+- Use common array converters and helper functions in C extensions.
+- Improve error messages.
 
 2026.8.8
 
@@ -77,27 +85,16 @@ Revisions
 
 2026.1.18
 
-- Rename chebyshev_invers to chebyshev_inverse (breaking).
-- Use multi-phase initialization.
-- Improve code quality.
-
-2025.8.1
-
-- Drop support for Python 3.10, support Python 3.14.
-
-2025.1.1
-
-- Improve type hints.
-- Drop support for Python 3.9, support Python 3.13.
-
-2024.5.24
-
 - …
 
 Refer to the CHANGES file for older revisions.
 
 Examples
 --------
+
+Import fit functions:
+
+>>> from chebyfit import fit_exponentials, fit_harmonic_decay
 
 Fit two-exponential decay function:
 
@@ -142,7 +139,7 @@ True
 
 from __future__ import annotations
 
-__version__ = '2026.8.8'
+__version__ = '2026.11.15'
 
 __all__ = [
     '__version__',
@@ -187,8 +184,10 @@ def fit_exponentials(
 
     Fitted model::
 
-        offset + sum_i(amplitude_i * exp(-t / rate_i) * cos(frequency_i * t))
+        offset + sum_i(amplitude_i * exp(-t / rate_i) * h_i(t))
 
+    where ``h_i(t) = cos(frequency_i * t)`` if ``frequency_i >= 0``,
+    else ``-sin(frequency_i * t)``.
     For pure exponential fits, frequency components are zero.
 
     Parameters:
@@ -300,18 +299,19 @@ def chebyshev_forward(
             One-dimensional input data. Converted to float64.
         numcoef:
             Number of coefficients to compute (1-64, default: 32).
-            Clamped to ``len(data)`` if larger.
+            Clamped to ``len(data)`` and 64 if larger.
 
     Returns:
         Chebyshev coefficients, 1-D array of shape ``(numcoef,)``.
 
     Raises:
         ValueError:
-            *data* not one-dimensional.
+            *data* not one-dimensional or empty, or *numcoef* < 1.
 
-    >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32) / 3.3)
-    >>> chebyshev_forward(data, 16)[:8]
-    array([1.36, 0.61, 0.61, 0.41, 0.2 , 0.08, 0.03, 0.01])
+    Examples:
+        >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32) / 3.3)
+        >>> chebyshev_forward(data, 16)[:8]
+        array([1.36, 0.61, 0.61, 0.41, 0.2 , 0.08, 0.03, 0.01])
 
     """
     return numpy.asarray(_chebyfit.chebyfwd(data, numcoef))
@@ -335,13 +335,14 @@ def chebyshev_inverse(
 
     Raises:
         ValueError:
-            *coef* not one-dimensional, *numdata* not positive,
+            *coef* not one-dimensional, ``len(coef)`` not in 1-64,
             or *numdata* < ``len(coef)``.
 
-    >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32) / 3.3)
-    >>> data2 = chebyshev_inverse(chebyshev_forward(data, 16), len(data))
-    >>> numpy.allclose(data, data2)
-    True
+    Examples:
+        >>> data = 1.1 + 2.2 * numpy.exp(-numpy.arange(32) / 3.3)
+        >>> data2 = chebyshev_inverse(chebyshev_forward(data, 16), len(data))
+        >>> numpy.allclose(data, data2)
+        True
 
     """
     return numpy.asarray(_chebyfit.chebyinv(coef, numdata))
@@ -352,8 +353,8 @@ def chebyshev_norm(
 ) -> numpy.ndarray[Any, Any]:
     """Return Chebyshev polynomial normalization factors Rj.
 
-    Normalization factors divide Chebyshev polynomials Tj(t) so that
-    Tj(t)/Rj are orthonormal over data points.
+    Rj is the sum of squares of Tj(t) over data points, such that
+    Tj(t)/sqrt(Rj) are orthonormal.
 
     Parameters:
         numdata:
@@ -369,8 +370,9 @@ def chebyshev_norm(
         ValueError:
             *numcoef* or *numdata* out of range, or *numcoef* > *numdata*.
 
-    >>> chebyshev_norm(4, 4)
-    array([ 4.  ,  2.22,  4.  , 20.  ])
+    Examples:
+        >>> chebyshev_norm(4, 4)
+        array([ 4.  ,  2.22,  4.  , 20.  ])
 
     """
     return numpy.asarray(_chebyfit.chebynorm(numdata, numcoef))
@@ -379,7 +381,7 @@ def chebyshev_norm(
 def chebyshev_polynom(
     numdata: int, numcoef: int = DEFCOEF, *, norm: bool = False
 ) -> numpy.ndarray[Any, Any]:
-    """Return Chebyshev polynomials Tj(t) / Rj.
+    """Return discrete Chebyshev polynomials Tj(t), optionally divided by Rj.
 
     Parameters:
         numdata:
@@ -388,9 +390,9 @@ def chebyshev_polynom(
             Number of polynomial orders to compute (1-64, default: 32).
             Must not exceed *numdata*.
         norm:
-            If True, divide each Tj(t) by normalization factor Rj
-            for orthonormal result. If False (default), return
-            unnormalized polynomials.
+            If True, divide each Tj(t) by normalization factor Rj,
+            such that the sum of Tj(t) * Tj(t)/Rj over data points is 1.
+            If False (default), return unnormalized polynomials.
 
     Returns:
         Chebyshev polynomials, 2-D array of shape ``(numcoef, numdata)``.
@@ -399,9 +401,10 @@ def chebyshev_polynom(
         ValueError:
             *numcoef* or *numdata* out of range, or *numcoef* > *numdata*.
 
-    >>> chebyshev_polynom(numdata=4, numcoef=2, norm=False)
-    array([[ 1.  ,  1.  ,  1.  ,  1.  ],
-           [ 1.  ,  0.33, -0.33, -1.  ]])
+    Examples:
+        >>> chebyshev_polynom(numdata=4, numcoef=2, norm=False)
+        array([[ 1.  ,  1.  ,  1.  ,  1.  ],
+            [ 1.  ,  0.33, -0.33, -1.  ]])
 
     """
     return numpy.asarray(_chebyfit.chebypoly(numdata, numcoef, norm))
@@ -410,8 +413,20 @@ def chebyshev_polynom(
 def polynom_roots(coeffs: ArrayLike, /) -> numpy.ndarray[Any, Any]:
     """Return complex roots of complex polynomial.
 
-    Uses Laguerre's method.
-    Coefficients ordered from smallest to largest power.
+    Uses Laguerre's method with deflation and root polishing.
+
+    Parameters:
+        coeffs:
+            Polynomial coefficients ordered from smallest to largest power.
+            Converted to complex128.
+
+    Returns:
+        Complex roots, 1-D array of shape ``(len(coeffs) - 1,)``.
+
+    Raises:
+        ValueError:
+            *coeffs* not one-dimensional or empty,
+            or root finding did not converge.
 
     >>> polynom_roots([-250.0, 155.0, -9.0, -5.0, 1.0])
     array([ 2.+0.j,  4.-3.j,  4.+3.j, -5.+0.j])
