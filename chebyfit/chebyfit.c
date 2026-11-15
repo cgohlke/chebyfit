@@ -41,10 +41,10 @@ and tests.\n\
 \n\
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_\n\
 :License: BSD-3-Clause\n\
-:Version: 2026.8.8\n\
+:Version: 2026.11.15\n\
 "
 
-#define _VERSION_ "2026.8.8"
+#define _VERSION_ "2026.11.15"
 
 #define PY_SSIZE_T_CLEAN
 #define WIN32_LEAN_AND_MEAN
@@ -54,13 +54,11 @@ and tests.\n\
 #include <math.h>
 
 /* Py_complex is not exposed in the limited API */
-#ifndef Py_complex
-# ifdef Py_LIMITED_API
+#ifdef Py_LIMITED_API
 typedef struct {
     double real;
     double imag;
 } Py_complex;
-# endif
 #endif
 
 #include <float.h>
@@ -71,7 +69,13 @@ typedef struct {
 #define MAXEXPS 8  /* maximum number of exponential components */
 #define PIVOT_TOLERANCE 1.0e-14
 #define LAGUERRE_TOLERANCE 1.0e-12
-#define LAGUERRE_MAX_ITERATIONS 30
+#define LAGUERRE_MAX_ITERATIONS 80
+#define LAGUERRE_FRAC_INTERVAL 10
+
+#define ERROR_ARGUMENT -1
+#define ERROR_SINGULAR -2
+#define ERROR_ROOTS -3
+#define ERROR_RATE -4
 #define TWOPI 6.283185307179586476925286766559
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795
@@ -82,25 +86,29 @@ typedef struct {
 
 /*
 Find single root of complex polynomial using Laguerre's method.
+Root is used as initial guess.
 */
-int laguerre(
+static int laguerre(
     const Py_ssize_t numpoly,
-    Py_complex* coeff,
+    const Py_complex* coeff,
     Py_complex* root)
 {
+    /* fractional steps break limit cycles */
+    static const double frac[] = {
+        0.5, 0.25, 0.75, 0.13, 0.38, 0.62, 0.88, 1.0
+    };
     Py_complex p, dp, ddp, gg, g, h, f, dx, gpf, gmf;
     Py_ssize_t i, j;
     Py_ssize_t n = numpoly - 1;
-    double t, u;
-
-    root->real = 0.5;
-    root->imag = 0.0;
+    double t, u, err, absx;
 
     for (i = 0; i < LAGUERRE_MAX_ITERATIONS; i++) {
-        /* evaluate polynomial */
+        /* evaluate polynomial and estimate its rounding error */
         p.real = coeff[n].real;
         p.imag = coeff[n].imag;
         dp.real = dp.imag = ddp.real = ddp.imag = 0.0;
+        err = sqrt(p.real * p.real + p.imag * p.imag);
+        absx = sqrt(root->real * root->real + root->imag * root->imag);
         for (j = 1; j < numpoly; j++) {
             t = ddp.real;
             ddp.real = t * root->real - ddp.imag * root->imag + 2.0 * dp.real;
@@ -111,10 +119,11 @@ int laguerre(
             t = p.real;
             p.real = t * root->real - p.imag * root->imag + coeff[n - j].real;
             p.imag = p.imag * root->real + t * root->imag + coeff[n - j].imag;
+            err = sqrt(p.real * p.real + p.imag * p.imag) + absx * err;
         }
 
         t = p.real * p.real + p.imag * p.imag;
-        if (sqrt(t) < LAGUERRE_TOLERANCE) {
+        if (sqrt(t) <= LAGUERRE_TOLERANCE * err) {
             return 0;
         }
 
@@ -145,14 +154,20 @@ int laguerre(
         u = gmf.real * gmf.real + gmf.imag * gmf.imag;
 
         if (t > u) {
-            if (t == 0.0) return -1;
+            if (t == 0.0) return ERROR_ROOTS;
             dx.real = (n * gpf.real) / t;
             dx.imag = (n * -gpf.imag) / t;
         }
         else {
-            if (u == 0.0) return -1;
+            if (u == 0.0) return ERROR_ROOTS;
             dx.real = (n * gmf.real) / u;
             dx.imag = (n * -gmf.imag) / u;
+        }
+
+        if ((i + 1) % LAGUERRE_FRAC_INTERVAL == 0) {
+            u = frac[((i + 1) / LAGUERRE_FRAC_INTERVAL - 1) % 8];
+            dx.real *= u;
+            dx.imag *= u;
         }
 
         root->real -= dx.real;
@@ -166,48 +181,62 @@ int laguerre(
             return 0;
         }
     }
-    return -1;
+    return ERROR_ROOTS;
 }
 
 /*
 Find complex roots of complex polynomial using Laguerre's method.
-Coefficients are ordered from smallest to largest power and are altered.
+Coefficients are ordered from smallest to largest power.
+Work is a buffer of numpoly complex numbers.
 */
-int polyroots(
+static int polyroots(
     const Py_ssize_t numpoly,
-    Py_complex* coeff,
+    const Py_complex* coeff,
+    Py_complex* work,
     Py_complex* roots)
 {
     Py_ssize_t i, j;
     Py_ssize_t n = numpoly;
-    Py_complex tc, tt;
+    Py_complex tc, tt, deflated;
     Py_complex *root;
+
+    memcpy(work, coeff, numpoly * sizeof(Py_complex));
 
     for (i = 0; i < numpoly - 1; i++) {
         root = &roots[i];
 
-        /* find single root */
-        if (laguerre(n, coeff, root) != 0) {
-            return -1;
-        }
-
-        if (fabs(root->imag) < LAGUERRE_TOLERANCE) {
-            root->imag = 0.0;
+        /* find single root of deflated polynomial */
+        root->real = 0.5;
+        root->imag = 0.0;
+        if (laguerre(n, work, root) != 0) {
+            return ERROR_ROOTS;
         }
 
         /* deflate */
         n--;
-        tc = coeff[n - 1];
-        coeff[n - 1] = coeff[n];
+        tc = work[n - 1];
+        work[n - 1] = work[n];
         for (j = n - 2; j >= 0; j--) {
             tt = tc;
-            tc = coeff[j];
-            coeff[j].real = root->real * coeff[j + 1].real -
-                root->imag * coeff[j + 1].imag +
+            tc = work[j];
+            work[j].real = root->real * work[j + 1].real -
+                root->imag * work[j + 1].imag +
                 tt.real;
-            coeff[j].imag = root->real * coeff[j + 1].imag +
-                root->imag * coeff[j + 1].real +
+            work[j].imag = root->real * work[j + 1].imag +
+                root->imag * work[j + 1].real +
                 tt.imag;
+        }
+    }
+
+    /* polish roots using original polynomial */
+    for (i = 0; i < numpoly - 1; i++) {
+        root = &roots[i];
+        deflated = *root;
+        if (laguerre(numpoly, coeff, root) != 0) {
+            *root = deflated;
+        }
+        if (fabs(root->imag) < LAGUERRE_TOLERANCE) {
+            root->imag = 0.0;
         }
     }
 
@@ -220,16 +249,26 @@ with pivoting.
 Matrix A is of shape (size, size) and is altered.
 Vector b is of shape (size) and will contain solution vector x.
 */
-int linsolve(
+static int linsolve(
     const Py_ssize_t size,
     double *matrix,
     double *vector)
 {
-    double temp;
+    double temp, tolerance;
     Py_ssize_t i, j, k, m, ks, ms, ksk, js;
 
+    /* pivot tolerance relative to largest matrix element */
+    tolerance = 0.0;
+    for (i = 0; i < size * size; i++) {
+        temp = fabs(matrix[i]);
+        if (!(temp <= tolerance)) {
+            tolerance = temp;
+        }
+    }
+    tolerance *= PIVOT_TOLERANCE;
+
     /* forward solution */
-    for (k = 0; k < size - 1; k++) {
+    for (k = 0; k < size; k++) {
         ks = k * size;
         ksk = ks + k;
 
@@ -256,9 +295,9 @@ int linsolve(
             vector[m] = temp;
         }
 
-        /* test for singular matrix */
-        if (fabs(matrix[ksk]) < PIVOT_TOLERANCE) {
-            return -1;
+        /* test for singular matrix, including NaN */
+        if (!(fabs(matrix[ksk]) > tolerance)) {
+            return ERROR_SINGULAR;
         }
 
         /* triangulation of matrix with coefficients */
@@ -286,7 +325,7 @@ int linsolve(
 /*
 Chebyshev polynomials Tj(t) / Rj.
 */
-int chebypoly(
+static int chebypoly(
     const Py_ssize_t numdata,  /* size of data array t */
     const Py_ssize_t numcoef,  /* number of polynomial coefficients j */
     double *poly,  /* output array of polynomials of shape (numcoef,numdata) */
@@ -302,11 +341,11 @@ int chebypoly(
         (numcoef < 1) || (numdata < 1) ||
         (numcoef > numdata) || (numcoef > MAXCOEF))
     {
-        return -1;
+        return ERROR_ARGUMENT;
     }
 
     ni = numdata - 1;
-    nf = 2.0 / (double)ni;
+    nf = (ni > 0) ? 2.0 / (double)ni : 0.0;
 
     a = buffer;
     for (j = 2; j < numcoef; j++) {
@@ -319,6 +358,9 @@ int chebypoly(
         nm2t = (double)(ni - 2 * t);
         ppoly = poly + t;
         *ppoly = tj2 = 1.0;
+        if (numcoef < 2) {
+            continue;
+        }
         ppoly += numdata;
         *ppoly = tj1 = 1.0 - nf * (double)t;
         a = buffer;
@@ -338,9 +380,11 @@ int chebypoly(
             for (t = 0; t < numdata; t++) {
                 *ppoly++ /= nf;
             }
-            t = 2 * j;
-            nf *= (double)((ni + j + 2) * (t + 1)) /
-                (double)((t + 3) * (ni - j));
+            if (j + 1 < numcoef) {
+                t = 2 * j;
+                nf *= (double)((ni + j + 2) * (t + 1)) /
+                    (double)((t + 3) * (ni - j));
+            }
         }
     }
     return 0;
@@ -349,7 +393,7 @@ int chebypoly(
 /*
 Chebyshev polynomial normalization factors Rj.
 */
-int chebynorm(
+static int chebynorm(
     const Py_ssize_t numdata,  /* size of data array */
     const Py_ssize_t numcoef,  /* number of polynomials */
     double *norm)  /* output array of shape (numcoef, ) */
@@ -361,7 +405,7 @@ int chebynorm(
         (numcoef < 1) || (numdata < 1) ||
         (numcoef > numdata) || (numcoef > MAXCOEF))
     {
-        return -1;
+        return ERROR_ARGUMENT;
     }
 
     n = numdata - 1;
@@ -377,8 +421,8 @@ int chebynorm(
 /*
 Forward Chebyshev transform dj.
 */
-int chebyfwd(
-    char *data,  /* array of doubles to be transformed */
+static int chebyfwd(
+    const char *data,  /* array of doubles to be transformed */
     const Py_ssize_t data_stride,  /* byte stride of data array */
     const Py_ssize_t numdata,  /* size of data array */
     double *coef,  /* output array of polynomial coefficients */
@@ -393,11 +437,11 @@ int chebyfwd(
         (numcoef < 1) || (numdata < 1) ||
         (numcoef > numdata) || (numcoef > MAXCOEF))
     {
-        return -1;
+        return ERROR_ARGUMENT;
     }
 
     ni = numdata - 1;
-    nf = 2.0 / (double)ni;
+    nf = (ni > 0) ? 2.0 / (double)ni : 0.0;
     a = buffer;
     for (j = 2; j < numcoef; j++) {
         aj = (double)(j * (numdata - j));
@@ -410,10 +454,13 @@ int chebyfwd(
         nm2t = (double)(ni - 2 * t);
         tj1 = 1.0 - nf * (double)t;
         tj2 = 1.0;
-        ft = *((double *)data);
+        ft = *((const double *)data);
         data += data_stride;
         pcoef = coef;
         *pcoef++ += ft;
+        if (numcoef < 2) {
+            continue;
+        }
         *pcoef++ += ft * tj1;
         a = buffer;
         for (j = 2; j < numcoef; j++) {
@@ -439,7 +486,7 @@ int chebyfwd(
 /*
 Inverse discrete Chebyshev transform.
 */
-int chebyinv(
+static int chebyinv(
     const double *coef,
     const Py_ssize_t numcoef,
     char *data,
@@ -456,11 +503,11 @@ int chebyinv(
         (numcoef < 1) || (numdata < 1) ||
         (numcoef > numdata) || (numcoef > MAXCOEF))
     {
-        return -1;
+        return ERROR_ARGUMENT;
     }
 
     ni = numdata - 1;
-    nf = 2.0 / (double)ni;
+    nf = (ni > 0) ? 2.0 / (double)ni : 0.0;
     a = buffer;
     for (j = 2; j < numcoef; j++) {
         aj = (double)(j * (numdata - j));
@@ -474,7 +521,9 @@ int chebyinv(
         tj2 = 1.0;
         pcoef = coef;
         ft = *pcoef++;
-        ft += (*pcoef++) * tj1;
+        if (numcoef > 1) {
+            ft += (*pcoef++) * tj1;
+        }
         a = buffer;
         for (j = 2; j < numcoef; j++) {
             tj = a[0] * tj1 * nm2t - a[1] * tj2;
@@ -495,7 +544,7 @@ Fit multiple exponential function.
 Strides are the number of bytes to move from array value to next.
 
 */
-int fitexps(
+static int fitexps(
     const char *data,  /* data array of doubles */
     const Py_ssize_t data_stride,
     const Py_ssize_t numdata,  /* number of double values in data array */
@@ -504,16 +553,16 @@ int fitexps(
     const Py_ssize_t numcoef,  /* number of coefficients */
     const Py_ssize_t numexps,  /* number of exponentials to fit */
     const double deltat,  /* duration between data points */
-    const Py_ssize_t startcoef,  /* start coefficient. usually numexps-1 */
+    const Py_ssize_t startcoef,  /* start coefficient. usually numexps+1 */
     double *buff,  /* working buffer of shape (numexps, numdata) */
     double *result,  /* buffer to receive fitted parameters
                         offset, amp[numexps], tau[numexps], frq[numexps] */
     char *fitt,  /* buffer to receive fitted data in double [numpoints] */
     const Py_ssize_t fitt_stride)
 {
-    PyThreadState *_save = NULL;
     Py_complex xroots[MAXEXPS];
     Py_complex xcoefs[MAXEXPS + 1];
+    Py_complex xwork[MAXEXPS + 1];
     double matrix[MAXEXPS * MAXEXPS];
     double vector[MAXEXPS];
     double *pbuff;
@@ -561,8 +610,6 @@ int fitexps(
         }
     }
 
-    _save = PyEval_SaveThread();
-
     /* integral coefficients dnj */
     N = numdata - 1;
     pdn0 = coef;
@@ -609,7 +656,6 @@ int fitexps(
     /* solve linear equation system */
     error = linsolve(numexps, matrix, vector);
     if (error != 0) {
-        PyEval_RestoreThread(_save);
         return error;
     }
 
@@ -620,9 +666,8 @@ int fitexps(
     }
     xcoefs[numexps].real = 1.0;
     xcoefs[numexps].imag = 0.0;
-    error = polyroots(numexps + 1, xcoefs, xroots);
+    error = polyroots(numexps + 1, xcoefs, xwork, xroots);
     if (error != 0) {
-        PyEval_RestoreThread(_save);
         return error;
     }
 
@@ -640,9 +685,8 @@ int fitexps(
     for (n = 0; n < numexps; n++) {
         frqn = frq[n];
         ratn = rat[n];
-        if (ratn == 0.0) {
-            PyEval_RestoreThread(_save);
-            return -1;
+        if ((ratn == 0.0) || !isfinite(ratn) || !isfinite(frqn)) {
+            return ERROR_RATE;
         }
         if (frqn == 0.0) {
             *pbuff++ = 1.0;
@@ -709,7 +753,6 @@ int fitexps(
     /* solve linear equation system for amplitudes */
     error = linsolve(numexps, matrix, amp);
     if (error != 0) {
-        PyEval_RestoreThread(_save);
         return error;
     }
 
@@ -757,7 +800,6 @@ int fitexps(
             }
         }
     }
-    PyEval_RestoreThread(_save);
     return 0;
 }
 
@@ -767,24 +809,24 @@ Fit frequency-domain data with photobleaching.
 Strides are the number of bytes to move from array value to next.
 
 */
-int fitexpsin(
+static int fitexpsin(
     const char *data,  /* data array of doubles */
     const Py_ssize_t data_stride,
     const Py_ssize_t numdata,  /* number of double values in data array */
     const double *poly,  /* precalc. normalized Chebyshev polynomial Tj(t) */
-    double *coef,  /* buffer for dnj of shape (numexps+1, numcoef+1) */
+    double *coef,  /* buffer for dnj of shape (4, numcoef+1) */
     const Py_ssize_t numcoef,  /* number of coefficients */
     const double deltat,  /* duration between data points */
-    const Py_ssize_t startcoef,  /* start coefficient. usually numexps-1 */
-    double *buff,  /* working buffer of shape (numexps, numdata) */
+    const Py_ssize_t startcoef,  /* start coefficient. usually 4 */
+    double *buff,  /* working buffer of max(3*numdata, 4*numcoef) */
     double *result,  /* buffer to receive fitted parameters
                         offset, tau, amp[3] */
     char *fitt,  /* buffer to receive fitted data in double[numpoints] */
     const Py_ssize_t fitt_stride)
 {
-    PyThreadState *_save = NULL;
     Py_complex xroots[5];
     Py_complex xcoefs[6];
+    Py_complex xwork[6];
     double matrix[3 * 3];
     double *pbuff;
     double *ppoly;
@@ -830,8 +872,6 @@ int fitexpsin(
             *pcoef++ = sum;
         }
     }
-
-    _save = PyEval_SaveThread();
 
     /* integral coefficients dnj */
     N = numdata - 1;
@@ -888,9 +928,8 @@ int fitexpsin(
     }
 
     /* roots of quintic polynomial */
-    error = polyroots(6, xcoefs, xroots);
+    error = polyroots(6, xcoefs, xwork, xroots);
     if (error != 0) {
-        PyEval_RestoreThread(_save);
         return error;
     }
 
@@ -916,6 +955,9 @@ int fitexpsin(
     }
 
     *rat = ratn = log((3.0 - xroots[k].real) / (2.0 * cosw + 1.0));
+    if ((ratn == 0.0) || !isfinite(ratn)) {
+        return ERROR_RATE;
+    }
 
     /* fitting amplitudes */
     /* Chebyshev transform signal for each exponential component */
@@ -1001,7 +1043,6 @@ int fitexpsin(
     /* solve linear equation system for amplitudes */
     error = linsolve(3, matrix, amp);
     if (error != 0) {
-        PyEval_RestoreThread(_save);
         return error;
     }
 
@@ -1050,7 +1091,6 @@ int fitexpsin(
         }
     }
 
-    PyEval_RestoreThread(_save);
     return 0;
 }
 
@@ -1059,50 +1099,76 @@ int fitexpsin(
 
 /*
 Numpy array converters for use with PyArg_Parse functions.
+Converted arrays are released if parsing of subsequent arguments fails.
 */
-
 static int
-PyConverter_ComplexArrayCopy(
+convert_array(
     PyObject *object,
-    PyObject **address)
+    PyObject **address,
+    int type,
+    int flags)
 {
-    *address = PyArray_FROM_OTF(
-        object,
-        NPY_COMPLEX128,
-        NPY_ARRAY_ENSURECOPY | NPY_ARRAY_IN_ARRAY
-    );
+    if (object == NULL) {
+        Py_CLEAR(*address);
+        return NPY_SUCCEED;
+    }
+    *address = PyArray_FROM_OTF(object, type, flags | NPY_ARRAY_NOTSWAPPED);
     if (*address == NULL) {
         return NPY_FAIL;
     }
-    return NPY_SUCCEED;
+    return Py_CLEANUP_SUPPORTED;
 }
 
-
+/* Aligned, native byte order double array of any layout. */
 static int
 PyConverter_AnyDoubleArray(
     PyObject *object,
     PyObject **address)
 {
-    PyArrayObject *obj = (PyArrayObject *)object;
-    if (PyArray_Check(object) && (PyArray_TYPE(obj) == NPY_DOUBLE)) {
-        *address = object;
-        Py_INCREF(object);
-        return NPY_SUCCEED;
-    }
-    else {
-        *address = PyArray_FROM_OTF(object, NPY_DOUBLE, NPY_ARRAY_ALIGNED);
-        if (*address == NULL) {
-            PyErr_Format(PyExc_ValueError, "can not convert to array");
-            return NPY_FAIL;
-        }
-        return NPY_SUCCEED;
+    return convert_array(object, address, NPY_DOUBLE, NPY_ARRAY_ALIGNED);
+}
+
+/* C-contiguous, aligned, native byte order double array. */
+static int
+PyConverter_ContiguousDoubleArray(
+    PyObject *object,
+    PyObject **address)
+{
+    return convert_array(object, address, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+}
+
+/* C-contiguous, aligned, native byte order complex128 array. */
+static int
+PyConverter_ContiguousComplexArray(
+    PyObject *object,
+    PyObject **address)
+{
+    return convert_array(object, address, NPY_COMPLEX128, NPY_ARRAY_IN_ARRAY);
+}
+
+static const char*
+error_message(
+    int error)
+{
+    switch (error)
+    {
+        case ERROR_ARGUMENT:
+            return "invalid argument";
+        case ERROR_SINGULAR:
+            return "singular matrix";
+        case ERROR_ROOTS:
+            return "polynomial root finding did not converge";
+        case ERROR_RATE:
+            return "invalid decay rate";
+        default:
+            return "unknown error";
     }
 }
 
 /*
 Python wrapper for fitexps().
 */
-char py_fitexps_doc[] =
+static const char py_fitexps_doc[] =
     "Return fitted parameters and data for multi-exponential function.";
 
 static PyObject* py_fitexps(
@@ -1121,10 +1187,11 @@ static PyObject* py_fitexps(
     double *buff = NULL;
     Py_ssize_t newshape[NPY_MAXDIMS];
     Py_ssize_t numexps, numdata;
-    Py_ssize_t startcoef = -1;
+    Py_ssize_t startcoef;
     Py_ssize_t numcoef = MAXCOEF;
-    int error, lastaxis, i, j;
-    int axis = NPY_MAXDIMS;
+    int error = 0;
+    int lastaxis, i, j;
+    int axis = -1;
     double deltat = 1.0;
     static char *kwlist[] = { "data", "numexps", "numcoef", "deltat", "axis",
                               NULL };
@@ -1150,29 +1217,24 @@ static PyObject* py_fitexps(
     if (axis < 0) {
         axis += PyArray_NDIM(data);
     }
-    if ((axis < 0) || (axis >= NPY_MAXDIMS)) {
-        PyErr_Format(PyExc_ValueError, "invalid axis");
+    if ((axis < 0) || (axis >= PyArray_NDIM(data))) {
+        PyErr_SetString(PyExc_ValueError, "invalid axis");
         goto _fail;
     }
     lastaxis = PyArray_NDIM(data) - 1;
 
     if ((numexps < 1) || (numexps > MAXEXPS)) {
-        PyErr_Format(PyExc_ValueError, "numexps out of bounds");
+        PyErr_SetString(PyExc_ValueError, "numexps out of bounds");
         goto _fail;
     }
 
     if ((numcoef < 1) || (numcoef > MAXCOEF)) {
-        PyErr_Format(PyExc_ValueError, "numcoef out of bounds");
+        PyErr_SetString(PyExc_ValueError, "numcoef out of bounds");
         goto _fail;
     }
 
-    if (startcoef < 0) { /* start regression away from zero coefficients */
-        startcoef = numexps + 1;
-    }
-    if (startcoef > numcoef - 2) {
-        PyErr_Format(PyExc_ValueError, "startcoef out of bounds");
-        goto _fail;
-    }
+    /* start regression away from zero coefficients */
+    startcoef = numexps + 1;
 
     numdata = PyArray_DIM(data, axis);
     if (numcoef > numdata) {
@@ -1194,7 +1256,6 @@ static PyObject* py_fitexps(
         NPY_DOUBLE
     );
     if (fitt == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate fitt array");
         goto _fail;
     }
 
@@ -1212,14 +1273,13 @@ static PyObject* py_fitexps(
         NPY_DOUBLE
     );
     if (rslt == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate rslt array");
         goto _fail;
     }
 
     /* working buffer */
     buff = (double *)PyMem_Malloc(numexps * numdata * sizeof(double));
     if (buff == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate buff array");
+        PyErr_NoMemory();
         goto _fail;
     }
 
@@ -1229,14 +1289,14 @@ static PyObject* py_fitexps(
         sizeof(double)
     );
     if (coef == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate coef array");
+        PyErr_NoMemory();
         goto _fail;
     }
 
     /* precalculate normalized Chebyshev polynomial */
-    poly = (double *)PyMem_Malloc(numdata * (numcoef + 1) * sizeof(double));
+    poly = (double *)PyMem_Malloc(numdata * numcoef * sizeof(double));
     if (poly == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate poly array");
+        PyErr_NoMemory();
         goto _fail;
     }
 
@@ -1244,8 +1304,8 @@ static PyObject* py_fitexps(
     if (error != 0) {
         PyErr_Format(
             PyExc_ValueError,
-            "chebypoly() failed with error code %i",
-            error
+            "chebypoly() failed: %s",
+            error_message(error)
         );
         goto _fail;
     }
@@ -1267,6 +1327,7 @@ static PyObject* py_fitexps(
         goto _fail;
     }
 
+    Py_BEGIN_ALLOW_THREADS
     while (data_it->index < data_it->size) {
         error = fitexps(
             (char *)data_it->dataptr,
@@ -1283,19 +1344,22 @@ static PyObject* py_fitexps(
             (char *)fitt_it->dataptr,
             PyArray_STRIDE(fitt, axis)
         );
-
         if (error != 0) {
-            PyErr_Format(
-                PyExc_ValueError,
-                "fitexps() failed with error code %i",
-                error
-            );
-            goto _fail;
+            break;
         }
-
         PyArray_ITER_NEXT(data_it);
         PyArray_ITER_NEXT(fitt_it);
         PyArray_ITER_NEXT(rslt_it);
+    }
+    Py_END_ALLOW_THREADS
+
+    if (error != 0) {
+        PyErr_Format(
+            PyExc_ValueError,
+            "fitexps() failed: %s",
+            error_message(error)
+        );
+        goto _fail;
     }
 
     Py_XDECREF((PyObject *)data_it);
@@ -1325,7 +1389,7 @@ _fail:
 /*
 Python wrapper for fitexpsin().
 */
-char py_fitexpsin_doc[] =
+static const char py_fitexpsin_doc[] =
     "Return fit parameters and data of frequency-domain data"
     " with photobleaching.";
 
@@ -1344,11 +1408,12 @@ static PyObject* py_fitexpsin(
     double *poly = NULL;
     double *coef = NULL;
     double *buff = NULL;
-    Py_ssize_t numdata;
-    Py_ssize_t startcoef = -1;
+    Py_ssize_t numdata, buffsize;
+    Py_ssize_t startcoef;
     Py_ssize_t numcoef = MAXCOEF;
-    int error, lastaxis, i, j;
-    int axis = NPY_MAXDIMS;
+    int error = 0;
+    int lastaxis, i, j;
+    int axis = -1;
     double deltat = 1.0;
     static char *kwlist[] = { "data", "numcoef", "deltat", "axis", NULL };
 
@@ -1372,24 +1437,19 @@ static PyObject* py_fitexpsin(
     if (axis < 0) {
         axis += PyArray_NDIM(data);
     }
-    if ((axis < 0) || (axis >= NPY_MAXDIMS)) {
-        PyErr_Format(PyExc_ValueError, "invalid axis");
+    if ((axis < 0) || (axis >= PyArray_NDIM(data))) {
+        PyErr_SetString(PyExc_ValueError, "invalid axis");
         goto _fail;
     }
     lastaxis = PyArray_NDIM(data) - 1;
 
     if ((numcoef < 1) || (numcoef > MAXCOEF)) {
-        PyErr_Format(PyExc_ValueError, "numcoef out of bounds");
+        PyErr_SetString(PyExc_ValueError, "numcoef out of bounds");
         goto _fail;
     }
 
-    if (startcoef < 0) {  /* start regression away from zero coefficients */
-        startcoef = 4;
-    }
-    if (startcoef > numcoef - 2) {
-        PyErr_Format(PyExc_ValueError, "startcoef out of bounds");
-        goto _fail;
-    }
+    /* start regression away from zero coefficients */
+    startcoef = 4;
 
     numdata = PyArray_DIM(data, axis);
     if (numcoef > numdata) {
@@ -1397,7 +1457,7 @@ static PyObject* py_fitexpsin(
     }
 
     if ((numcoef - startcoef - 1) < 3) {
-        PyErr_Format(
+        PyErr_SetString(
             PyExc_ValueError,
             "number of coefficients insufficient to fit data"
         );
@@ -1411,7 +1471,6 @@ static PyObject* py_fitexpsin(
         NPY_DOUBLE
     );
     if (fitt == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate fitt array");
         goto _fail;
     }
 
@@ -1429,28 +1488,31 @@ static PyObject* py_fitexpsin(
         NPY_DOUBLE
     );
     if (rslt == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate rslt array");
         goto _fail;
     }
 
-    /* working buffer */
-    buff = (double *)PyMem_Malloc(3 * numdata * sizeof(double));
+    /* working buffer for three components and cubic polynomial coefficients */
+    buffsize = 3 * numdata;
+    if (buffsize < 4 * numcoef) {
+        buffsize = 4 * numcoef;
+    }
+    buff = (double *)PyMem_Malloc(buffsize * sizeof(double));
     if (buff == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate buff array");
+        PyErr_NoMemory();
         goto _fail;
     }
 
     /* buffer for differential coefficients */
     coef = (double *)PyMem_Malloc((3 + 1) * (numcoef + 1) * sizeof(double));
     if (coef == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate coef array");
+        PyErr_NoMemory();
         goto _fail;
     }
 
     /* precalculate normalized Chebyshev polynomial */
-    poly = (double *)PyMem_Malloc(numdata * (numcoef + 1) * sizeof(double));
+    poly = (double *)PyMem_Malloc(numdata * numcoef * sizeof(double));
     if (poly == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate poly array");
+        PyErr_NoMemory();
         goto _fail;
     }
 
@@ -1458,8 +1520,8 @@ static PyObject* py_fitexpsin(
     if (error != 0) {
         PyErr_Format(
             PyExc_ValueError,
-            "chebypoly() failed with error code %i",
-            error
+            "chebypoly() failed: %s",
+            error_message(error)
         );
         goto _fail;
     }
@@ -1481,6 +1543,7 @@ static PyObject* py_fitexpsin(
         goto _fail;
     }
 
+    Py_BEGIN_ALLOW_THREADS
     while (data_it->index < data_it->size) {
         error = fitexpsin(
             (char *)data_it->dataptr,
@@ -1496,19 +1559,22 @@ static PyObject* py_fitexpsin(
             (char *)fitt_it->dataptr,
             PyArray_STRIDE(fitt, axis)
         );
-
         if (error != 0) {
-            PyErr_Format(
-                PyExc_ValueError,
-                "fitexpsin() failed with error code %i",
-                error
-            );
-            goto _fail;
+            break;
         }
-
         PyArray_ITER_NEXT(data_it);
         PyArray_ITER_NEXT(fitt_it);
         PyArray_ITER_NEXT(rslt_it);
+    }
+    Py_END_ALLOW_THREADS
+
+    if (error != 0) {
+        PyErr_Format(
+            PyExc_ValueError,
+            "fitexpsin() failed: %s",
+            error_message(error)
+        );
+        goto _fail;
     }
 
     Py_XDECREF((PyObject *)data_it);
@@ -1538,7 +1604,7 @@ _fail:
 /*
 Python wrapper for chebyfwd().
 */
-char py_chebyfwd_doc[] =
+static const char py_chebyfwd_doc[] =
     "Return coefficients dj of forward Chebyshev transform from data.";
 
 static PyObject* py_chebyfwd(
@@ -1569,12 +1635,20 @@ static PyObject* py_chebyfwd(
     }
 
     if (PyArray_NDIM(data) != 1) {
-        PyErr_Format(PyExc_ValueError, "not a one dimensional array");
+        PyErr_SetString(PyExc_ValueError, "not a one dimensional array");
         goto _fail;
     }
 
     numdata = PyArray_DIM(data, 0);
+    if (numdata < 1) {
+        PyErr_SetString(PyExc_ValueError, "data size out of range");
+        goto _fail;
+    }
 
+    if (numcoef < 1) {
+        PyErr_SetString(PyExc_ValueError, "numcoef out of range");
+        goto _fail;
+    }
     if (numcoef > numdata) {
         numcoef = numdata;
     }
@@ -1585,12 +1659,11 @@ static PyObject* py_chebyfwd(
     t = numcoef;
     coef = (PyArrayObject *)PyArray_SimpleNew(1, &t, NPY_DOUBLE);
     if (coef == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate coef array");
         goto _fail;
     }
 
     error = chebyfwd(
-        (char *)PyArray_DATA(data),
+        (const char *)PyArray_DATA(data),
         PyArray_STRIDE(data, 0),
         numdata,
         (double *)PyArray_DATA(coef),
@@ -1600,8 +1673,8 @@ static PyObject* py_chebyfwd(
     if (error != 0) {
         PyErr_Format(
             PyExc_ValueError,
-            "chebyfwd() failed with error code %i",
-            error
+            "chebyfwd() failed: %s",
+            error_message(error)
         );
         goto _fail;
     }
@@ -1618,7 +1691,7 @@ _fail:
 /*
 Python wrapper for chebyinv().
 */
-char py_chebyinv_doc[] =
+static const char py_chebyinv_doc[] =
     "Return reconstructed data from Chebyshev coefficients dj.";
 
 static PyObject* py_chebyinv(
@@ -1640,7 +1713,7 @@ static PyObject* py_chebyinv(
         kwds,
         "O&n",
         kwlist,
-        PyConverter_AnyDoubleArray,
+        PyConverter_ContiguousDoubleArray,
         &coef,
         &numdata
     ))
@@ -1649,24 +1722,26 @@ static PyObject* py_chebyinv(
     }
 
     if (PyArray_NDIM(coef) != 1) {
-        PyErr_Format(PyExc_ValueError, "not a one dimensional array");
+        PyErr_SetString(PyExc_ValueError, "not a one dimensional array");
         goto _fail;
     }
 
     numcoef = PyArray_DIM(coef, 0);
-    if (numcoef > MAXCOEF) {
-        PyErr_Format(PyExc_ValueError, "too many coefficients");
+    if ((numcoef < 1) || (numcoef > MAXCOEF)) {
+        PyErr_SetString(PyExc_ValueError, "numcoef out of range");
         goto _fail;
     }
 
-    if (numdata < 1) {
-        PyErr_Format(PyExc_ValueError, "numdata must be positive");
+    if (numdata < numcoef) {
+        PyErr_SetString(
+            PyExc_ValueError,
+            "numdata must be at least the number of coefficients"
+        );
         goto _fail;
     }
     t = numdata;
     data = (PyArrayObject *)PyArray_SimpleNew(1, &t, NPY_DOUBLE);
     if (data == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate data array");
         goto _fail;
     }
 
@@ -1681,8 +1756,8 @@ static PyObject* py_chebyinv(
     if (error != 0) {
         PyErr_Format(
             PyExc_ValueError,
-            "chebyinv() failed with error code %i",
-            error
+            "chebyinv() failed: %s",
+            error_message(error)
         );
         goto _fail;
     }
@@ -1699,8 +1774,8 @@ _fail:
 /*
 Python wrapper for chebypoly().
 */
-char py_chebypoly_doc[] =
-    "Return Chebyshev polynomials Tj(t) / Rj.";
+static const char py_chebypoly_doc[] =
+    "Return Chebyshev polynomials Tj(t), optionally divided by Rj.";
 
 static PyObject* py_chebypoly(
     PyObject *obj,
@@ -1755,7 +1830,6 @@ static PyObject* py_chebypoly(
     shape[1] = numdata;
     poly = (PyArrayObject *)PyArray_SimpleNew(2, shape, NPY_DOUBLE);
     if (poly == NULL) {
-        PyErr_Format(PyExc_MemoryError, "unable to allocate poly array");
         goto _fail;
     }
 
@@ -1764,8 +1838,8 @@ static PyObject* py_chebypoly(
     if (error != 0) {
         PyErr_Format(
             PyExc_ValueError,
-            "chebypoly() failed with error code %i",
-            error
+            "chebypoly() failed: %s",
+            error_message(error)
         );
         goto _fail;
     }
@@ -1780,7 +1854,7 @@ _fail:
 /*
 Python wrapper for chebynorm().
 */
-char py_chebynorm_doc[] =
+static const char py_chebynorm_doc[] =
     "Return Chebyshev polynomial normalization factors Rj.";
 
 static PyObject* py_chebynorm(
@@ -1824,7 +1898,6 @@ static PyObject* py_chebynorm(
     t = numcoef;
     norm = (PyArrayObject *)PyArray_SimpleNew(1, &t, NPY_DOUBLE);
     if (norm == NULL) {
-        PyErr_Format(PyExc_MemoryError, "failed to allocate array");
         goto _fail;
     }
 
@@ -1833,8 +1906,8 @@ static PyObject* py_chebynorm(
     if (error != 0) {
         PyErr_Format(
             PyExc_ValueError,
-            "chebynorm() failed with error code %i",
-            error
+            "chebynorm() failed: %s",
+            error_message(error)
         );
         goto _fail;
     }
@@ -1849,7 +1922,7 @@ _fail:
 /*
 Python wrapper for polyroot().
 */
-char py_polyroots_doc[] =
+static const char py_polyroots_doc[] =
     "Return complex roots of complex polynomial using Laguerre's method.\n\n"
     "    coeffs : numpy array\n"
     "        Complex polynomial coefficients ordered from\n"
@@ -1862,6 +1935,7 @@ static PyObject* py_polyroots(
 {
     PyArrayObject *coeffs = NULL;
     PyArrayObject *result = NULL;
+    Py_complex *work = NULL;
     Py_ssize_t dims;
     int error;
     static char *kwlist[] = { "coeffs", NULL };
@@ -1872,43 +1946,53 @@ static PyObject* py_polyroots(
         kwds,
         "O&",
         kwlist,
-        PyConverter_ComplexArrayCopy,
+        PyConverter_ContiguousComplexArray,
         &coeffs
     ))
     {
         return NULL;
     }
 
-    if (PyArray_NDIM(coeffs) != 1) {
-        PyErr_Format(PyExc_ValueError, "invalid coefficients");
+    if ((PyArray_NDIM(coeffs) != 1) || (PyArray_DIM(coeffs, 0) < 1)) {
+        PyErr_SetString(PyExc_ValueError, "invalid coefficients");
         goto _fail;
     }
 
     dims = PyArray_DIM(coeffs, 0) - 1;
     result = (PyArrayObject *)PyArray_SimpleNew(1, &dims, NPY_COMPLEX128);
     if (result == NULL) {
-        PyErr_Format(PyExc_MemoryError, "failed to allocate roots array");
+        goto _fail;
+    }
+
+    work = (Py_complex *)PyMem_Malloc(
+        PyArray_DIM(coeffs, 0) * sizeof(Py_complex)
+    );
+    if (work == NULL) {
+        PyErr_NoMemory();
         goto _fail;
     }
 
     error = polyroots(
         PyArray_DIM(coeffs, 0),
-        PyArray_DATA(coeffs),
-        PyArray_DATA(result)
+        (const Py_complex *)PyArray_DATA(coeffs),
+        work,
+        (Py_complex *)PyArray_DATA(result)
     );
     if (error != 0) {
         PyErr_Format(
             PyExc_ValueError,
-            "polyroots() failed with error code %i",
-            error
+            "polyroots() failed: %s",
+            error_message(error)
         );
         goto _fail;
     }
 
+    PyMem_Free(work);
     Py_DECREF((PyObject *)coeffs);
     return PyArray_Return(result);
 
 _fail:
+    PyMem_Free(work);
     Py_XDECREF((PyObject *)coeffs);
     Py_XDECREF((PyObject *)result);
     return NULL;
@@ -1935,24 +2019,6 @@ static PyMethodDef module_methods[] = {
     { NULL, NULL, 0, NULL }  /* Sentinel */
 };
 
-static int module_traverse(
-    PyObject *m,
-    visitproc visit,
-    void *arg)
-{
-    (void)m;
-    (void)visit;
-    (void)arg;
-    return 0;
-}
-
-static int module_clear(
-    PyObject *m)
-{
-    (void)m;
-    return 0;
-}
-
 static int module_exec(
     PyObject *module)
 {
@@ -1967,7 +2033,11 @@ static int module_exec(
 
 static struct PyModuleDef_Slot module_slots[] = {
     { Py_mod_exec, module_exec },
-    { Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED },
+    /* numpy does not support subinterpreters */
+    {
+        Py_mod_multiple_interpreters,
+        Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED
+    },
 #ifdef Py_MOD_GIL_NOT_USED
     { Py_mod_gil, Py_MOD_GIL_NOT_USED },
 #endif
@@ -1981,8 +2051,8 @@ static struct PyModuleDef moduledef = {
     0,
     module_methods,
     module_slots,
-    module_traverse,
-    module_clear,
+    NULL,
+    NULL,
     NULL
 };
 
